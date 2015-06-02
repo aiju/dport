@@ -26,8 +26,7 @@ module stuff(
 	localparam STUFF = 2;
 	localparam VBLANK = 3;
 	localparam VBID = 4;
-	localparam MVID = 5;
-	localparam EOL = 6;
+	localparam EOL = 5;
 	
 	reg hstart, vstart, hstart_, vstart_, pxcons;
 
@@ -52,8 +51,10 @@ module stuff(
 	reg [15:0] xrem, xrem_, yrem, yrem_;
 	
 	reg [18:0] tufctr;
-	wire [4:0] tufill = (tufctr + 'h800) >> 12;
-	wire [18:0] tufinc = (sclkinc << 1) + sclkinc;
+	wire [19:0] tufround = tufctr + 'h800;
+	wire [5:0] tufill = tufround[16:11];
+	wire [18:0] tufinc = ({3'd0, sclkinc} << 1) + {3'd0, sclkinc};
+	wire [19:0] tufincround = tufinc + 'h800;
 	reg tufreset, tufstep;
 	
 	always @(posedge dpclk) begin
@@ -82,7 +83,7 @@ module stuff(
 		if(tufreset)
 			tufctr <= tufinc;
 		else if(tufstep) begin
-			tufctr <= tufctr - (tufill << 12) + tufinc;
+			tufctr <= tufctr - {2'd0, tufill, 11'd0} + tufinc;
 			tuctr <= tufill;
 		end
 		
@@ -131,35 +132,38 @@ module stuff(
 		case(state)
 		IDLE: begin
 			if(vstart_) begin
-				if(pxfill == 4) begin
+				if(pxfill >= 3) begin
 					state_ = ACTIVE;
-					xrem_ = hact;
+					xrem_ = (hact << 1) + hact;
 					yrem_ = vact;
+					vstart_ = 0;
 					hstart_ = 0;
 					dpdat0 = {`symBE, 8'b0};
 					dpdat1 = {`symBE, 8'b0};
 					dpisk0 = 2'b10;
 					dpisk1 = 2'b10;
 					tufreset = 1;
-					tuctr_ = (tufinc + 'h800) >> 12;
+					tuctr_ = tufincround[16:11];
 				end
-			end else if(hstart_ && yrem > 0 && pxfill == 4) begin
+			end else if(hstart_ && yrem > 0 && pxfill >= 3) begin
 				state_ = ACTIVE;
-				xrem_ = hact;
+				xrem_ = (hact << 1) + hact;
 				ctr_ = 0;
 				hstart_ = 0;
 				dpdat0 = {`symBE, 8'b0};
 				dpdat1 = {`symBE, 8'b0};
 				dpisk0 = 2'b10;
 				dpisk1 = 2'b10;
-				tufstep = 1;
+				tufreset = 1;
+				tuctr_ = tufincround[16:11];
 			end else if(hstart_ && yrem == 0) begin
 				dpdat0 = {8'h1, `symBS};
 				dpdat1 = {8'h1, `symBS};
 				dpisk0 = 2'b01;
 				dpisk1 = 2'b01;
+				ctr_ = 1;
 				hstart_ = 0;
-				state_ = MVID;
+				state_ = VBID;
 			end
 		end
 		ACTIVE: begin
@@ -178,7 +182,7 @@ module stuff(
 			end
 			endcase
 			ctr_ = ctr + 1;
-			if(tuctr == 0) begin
+			if(tuctr == 0 || xrem == 0) begin
 				state_ = STUFF;
 				dpdat0 = {8'b0, `symFS};
 				dpdat1 = {8'b0, `symFS};
@@ -186,8 +190,8 @@ module stuff(
 				if(xrem == 0) begin
 					dpdat0 = {7'b0, yrem == 1, `symBS};
 					dpdat1 = {7'b0, yrem == 1, `symBS};
-					state_ = MVID;
-					ctr_ = 0;
+					state_ = VBID;
+					ctr_ = 1;
 				end else if(ctr == MAXCTR) begin
 					dpdat0[15:8] = `symFE;
 					dpdat1[15:8] = `symFE;
@@ -196,7 +200,7 @@ module stuff(
 					state_ = ACTIVE;
 					ctr_ = 0;
 				end
-			end else if(tuctr == 1) begin
+			end else if(tuctr == 1 || xrem == 1) begin
 				tuctr_ = 0;
 				state_ = STUFF;
 				pxrem_ = pxrem == 2 ? 0 : pxrem + 1;
@@ -211,6 +215,8 @@ module stuff(
 					dpdat0[15:8] = `symFS;
 					dpdat1[15:8] = `symFS;
 				end
+				dpisk0[1] = 1;
+				dpisk1[1] = 1;
 			end else begin
 				pxrem_ = pxrem == 0 ? 2 : pxrem - 1;
 				pxcons = pxrem != 0;
@@ -306,22 +312,27 @@ module stuff(
 				17: dpdat0 = {misc[7:0], Nvid[7:0]};
 				18: dpdat0 = {8'b0, misc[15:8]};
 				19: begin
-					dpdat0 = {`symSE, 8'b0};
-					dpisk0 = 2'b10;
+					dpdat0 = {8'b0, `symSE};
+					dpisk0 = 2'b01;
 					ctr_ = 0;
 					state_ = IDLE;
 				end
 				endcase
 		end
 		VBID: begin
-			dpdat0 = {Mvid[7:0], 7'b0, yrem <= 1};
-			dpdat1 = {Mvid[7:0], 7'b0, yrem <= 1};
-			state_ = EOL;
-		end
-		MVID: begin
-			dpdat0 = {8'b0, Mvid[7:0]};
-			dpdat1 = {8'b0, Mvid[7:0]};
-			state_ = EOL;
+			ctr_ = ctr + 2;
+			dpisk0 = 0;
+			dpisk1 = 0;
+			case(ctr % 3)
+			0: dpdat0 = {Mvid[7:0], 7'b0, yrem <= 1};
+			1: dpdat0 = {8'b0, Mvid[7:0]};
+			2: dpdat0 = {7'b0, yrem <= 1, 8'b0};
+			endcase
+			if(!twolane && (ctr == 10 || ctr == 11) || twolane && (ctr == 4 || ctr == 5)) begin
+				ctr_ = 0;
+				state_ = EOL;
+			end
+			dpdat1 = dpdat0;
 		end
 		EOL: begin
 			state_ = yrem == 1 ? VBLANK : IDLE;

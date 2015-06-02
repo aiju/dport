@@ -1,0 +1,12 @@
+*.jou
+*.log
+*.html
+*.xml
+*.dmp
+fsm_encoding.os
+build
+.Xil
+test/obj_dir
+a.out
+5.out
+*.5

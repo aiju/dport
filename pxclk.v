@@ -26,7 +26,7 @@ module pxclk(
 	always @(posedge clk) begin
 		dpvstart <= 0;
 		if(pxctr[30:15] >= htot) begin
-			pxctr <= pxctr - (htot << 15) + sclkinc;
+			pxctr <= pxctr - {htot, 15'd0} + {15'd0, sclkinc};
 			dphstart <= 1;
 			if(yctr == vtot) begin
 				dpvstart <= 1;
@@ -34,7 +34,7 @@ module pxclk(
 			end else
 				yctr <= yctr + 1;
 		end else begin
-			pxctr <= pxctr + sclkinc;
+			pxctr <= pxctr + {15'd0, sclkinc};
 			dphstart <= 0;
 		end
 		if(reset) begin

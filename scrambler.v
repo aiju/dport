@@ -13,8 +13,8 @@ module scrambler(
 	reg [15:0] key;
 	
 	initial begin
-		lfsr <= 16'hffff;
-		bsctr <= 0;
+		lfsr = 16'hffff;
+		bsctr = 0;
 	end
 	wire [1:0] bs, reset;
 	assign bs[0] = inisk[0] && indata[7:0] == `symBS;

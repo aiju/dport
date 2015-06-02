@@ -20,15 +20,22 @@ module regs(
 	input wire auxerr,
 	input wire [7:0] auxrdata,
 	
+	output reg [15:0] debugaddr,
+	output reg debugreq,
+	input wire debugack,
+	input wire [31:0] debugrdata,
+	
 	output reg [`ATTRMAX:0] attr,
 	output reg reset,
 	output reg [2:0] phymode,
 	output reg [2:0] prbssel
 );
 
-	reg state, armreq0;
+	reg armreq0;
+	reg [1:0] state;
 	localparam IDLE = 0;
 	localparam AUX = 1;
+	localparam DEBUG = 2;
 
 	initial begin
 		reset = 1;
@@ -36,6 +43,7 @@ module regs(
 		phymode = 0;
 		prbssel = 0;
 		auxreq = 0;
+		debugreq = 0;
 	end
 	always @(posedge clk) begin
 		armack <= 0;
@@ -75,6 +83,12 @@ module regs(
 					auxwr <= armwr;
 					auxreq <= 1;
 				end
+				2:
+					if(!armwr) begin
+						state <= DEBUG;
+						debugaddr <= armaddr[15:0];
+						debugreq <= 1;
+					end
 				endcase
 		AUX:
 			if(auxack) begin
@@ -83,6 +97,14 @@ module regs(
 				armack <= 1;
 				armerr <= auxerr;
 				armrdata <= {auxrdata, auxrdata, auxrdata, auxrdata};
+			end
+		DEBUG:
+			if(debugack) begin
+				state <= IDLE;
+				debugreq <= 0;
+				armack <= 1;
+				armrdata <= debugrdata;
+				armerr <= 0;
 			end
 		endcase
 	end

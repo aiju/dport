@@ -54,6 +54,10 @@ module top(
 	wire auxreq, auxack, auxwr, auxerr;
 	wire auxi, auxo, auxd;
 	
+	wire [15:0] debugaddr;
+	wire [31:0] debugrdata;
+	wire debugreq, debugack;
+	
 	wire dpclk, fifoempty, fiforden, dphstart, dpvstart, reset, gtpready;
 	wire [1:0] dpisk0, dpisk1, scrisk0, scrisk1, txisk0, txisk1;
 	wire [2:0] phymode, prbssel;
@@ -79,13 +83,14 @@ module top(
 
 	regs regs0(clk, armaddr, armrdata, armwdata, armwr, armreq, armack, armwstrb, armerr,
 		auxaddr, auxwdata, auxreq, auxwr, auxack, auxerr, auxrdata,
+		debugaddr, debugreq, debugack, debugrdata,
 		attr, reset, phymode, prbssel);
 	aux aux0(clk, auxaddr, auxwdata, auxreq, auxwr, auxack, auxerr, auxrdata, auxi, auxo, auxd);
 	pxclk pxclk0(dpclk, attr, reset, dphstart, dpvstart);
 	reg r0, r1;
 	always @(posedge dpclk) r0 <= r0 ^ dphstart;
 	always @(posedge dpclk) r1 <= r1 ^ dpvstart;
-	assign debug = r0;
+	assign debug = r0 | armack | (|armrdata);
 	assign debug2 = r1;
 	assign fifodo = 'hFFCCAAFFCCAA;
 	stuff stuff0(dpclk, fifoempty, fifodo, fiforden, dphstart, dpvstart, dpdat0, dpdat1, dpisk0, dpisk1, attr, reset);
@@ -93,6 +98,7 @@ module top(
 	scrambler scr1(dpclk, dpdat1, dpisk1, scrdat1, scrisk1);
 	phy phy0(dpclk, phymode, scrdat0, scrdat1, scrisk0, scrisk1, txdat0, txdat1, txisk0, txisk1);
 	gtp gtp0(clk, refclk, dpclk, gtpready, prbssel, txdat0, txdat1, txisk0, txisk1, tx);
+	debugm debugm0(clk, dpclk, dpdat0, dpdat1, dpisk0, dpisk1, debugaddr, debugreq, debugack, debugrdata);
 
 	wire auxi0;
 	sync auxsync(clk, !auxi0, auxi);
