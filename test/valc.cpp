@@ -11,6 +11,8 @@
 Vval *top;
 
 vluint64_t main_time = 0;
+int twolane = 1;
+int debug = 0;
 
 uint8_t
 scramble(uint8_t c, int isk)
@@ -27,11 +29,11 @@ scramble(uint8_t c, int isk)
 	if(isk){
 		if(c == 0x1c){
 			lfsr = 0xffff;
-			return 0xbc;
+			return 0;
 		}
-		return c;
+		return 0;
 	}
-	return c^n;
+	return n;
 }
 
 double
@@ -66,6 +68,7 @@ print(unsigned char c, int isk)
 		case 0xfe: printf("FS "); break;
 		case 0xf7: printf("FE "); break;
 		case 0x1c: printf("SR "); break;
+		default: printf("?(%x) ", c);
 		}
 	else
 		printf("%.2x ", c);
@@ -104,30 +107,53 @@ fatal(char *fmt, ...)
 void
 parseattr(uint8_t *p, int n)
 {
-	Mvid = p[0] << 16 | p[1] << 8 | p[2];
-	htotal = p[3] << 8 | p[4];
-	vtotal = p[5] << 8 | p[6];
-	hsw = p[7] << 8 | p[8];
-	if((p[9] << 16 | p[10] << 8 | p[11]) != Mvid)
-		error("second Mvid doesn't match first");
-	hstart = p[12] << 8 | p[13];
-	vstart = p[14] << 8 | p[15];
-	vsw = p[16] << 8 | p[17];
-	if((p[18] << 16 | p[19] << 8 | p[20]) != Mvid)
-		error("third Mvid doesn't match first");
-	hwidth = p[21] << 8 | p[22];
-	vheight = p[23] << 8 | p[24];
-	if(p[25] != 0 || p[26] != 0)
-		error("1st zero word not zero");
-	if((p[27] << 16 | p[28] << 8 | p[29]) != Mvid)
-		error("third Mvid doesn't match first");
-	Nvid = p[30] << 16 | p[31] << 8 | p[32];
-	misc0 = p[33];
-	misc1 = p[34];
-	if(p[35] != 0)
-		error("2nd zero not zero");
-	if(n != 36)
-		error("attribute packet wrong size %d != 36", n);
+	if(twolane){
+		Mvid = p[0] << 16 | p[2] << 8 | p[4];
+		if(p[0] != p[1] || p[2] != p[3] || p[4] != p[5])
+			error("second Mvid doesn't match first");
+		htotal = p[6] << 8 | p[8];
+		hstart = p[7] << 8 | p[9];
+		vtotal = p[10] << 8 | p[12];
+		vstart = p[11] << 8 | p[13];
+		hsw = p[14] << 8 | p[16];
+		vsw = p[15] << 8 | p[17];
+		if((p[18] << 16 | p[20] << 8 | p[22]) != Mvid)
+			error("third Mvid doesn't match first");
+		if((p[19] << 16 | p[21] << 8 | p[23]) != Mvid)
+			error("fourth Mvid doesn't match first");
+		hwidth = p[24] << 8 | p[26];
+		Nvid = p[25] << 16 | p[27] << 8 | p[29];
+		vheight = p[28] << 8 | p[30];
+		misc0 = p[31];
+		misc1 = p[33];
+		if(p[32] != 0 || p[34] != 0 || p[35] != 0)
+			error("zeroes not zero");
+	}else{
+		Mvid = p[0] << 16 | p[1] << 8 | p[2];
+		htotal = p[3] << 8 | p[4];
+		vtotal = p[5] << 8 | p[6];
+		hsw = p[7] << 8 | p[8];
+		if((p[9] << 16 | p[10] << 8 | p[11]) != Mvid)
+			error("second Mvid doesn't match first");
+		hstart = p[12] << 8 | p[13];
+		vstart = p[14] << 8 | p[15];
+		vsw = p[16] << 8 | p[17];
+		if((p[18] << 16 | p[19] << 8 | p[20]) != Mvid)
+			error("third Mvid doesn't match first");
+		hwidth = p[21] << 8 | p[22];
+		vheight = p[23] << 8 | p[24];
+		if(p[25] != 0 || p[26] != 0)
+			error("1st zero word not zero");
+		if((p[27] << 16 | p[28] << 8 | p[29]) != Mvid)
+			error("third Mvid doesn't match first");
+		Nvid = p[30] << 16 | p[31] << 8 | p[32];
+		misc0 = p[33];
+		misc1 = p[34];
+		if(p[35] != 0)
+			error("2nd zero not zero");
+		if(n != 36)
+			error("attribute packet wrong size %d != 36", n);
+	}
 	note("resolution %dx%d, total %dx%d, sync %d(%c)x%d(%c), start %dx%d, Mvid/Nvid %d/%d (%g)", hwidth, vheight, htotal, vtotal, hsw & 0x7fff, (hsw & 0x8000) ? '-' : '+', vsw & 0x7fff, (vsw & 0x8000) ? '-' : '+', hstart, vstart, Mvid, Nvid, (double)Mvid/Nvid*162);
 	if(misc0 != 0x21 || misc1 != 0)
 		note("unsupported mode");
@@ -157,7 +183,37 @@ hdata(uint8_t c, int reset)
 }
 
 void
-out(uint8_t c, int isk)
+hdata2(uint8_t c, uint8_t e, int reset)
+{
+	static uint32_t prng, prng0;
+	static int n = 4;
+	uint8_t d, f;
+	
+	if(reset){
+		n = 4;
+		prng = 0;
+		prng0 = 0;
+		return;
+	}
+	d = prng >> 8 * n;
+	f = prng0 >> 8 * n;
+	if(d != c)
+		error("wrong byte (l0) %x != %x", c, d);
+	if(f != e)
+		error("wrong byte (l1) %x != %x", e, f);
+	if(++n == 3){
+		prng = 1664525 * prng0 + 1013904223;
+		prng0 = 1664525 * prng + 1013904223;
+		n = 0;
+	}
+	if(n == 7){
+		n = 0;
+		prng0 = 1013904223;
+	}
+}
+
+void
+out(uint8_t c, int isk, uint8_t c1, int isk1)
 {
 	static int state;
 	static uint8_t buf[64];
@@ -173,10 +229,24 @@ out(uint8_t c, int isk)
 		HEND,
 		HBL
 	};
+	uint8_t s;
 
-	c = scramble(c, isk);
-	if(0 && state >= VBL)
+	s = scramble(c, isk);
+	if(!isk)
+		c ^= s;
+	else if(c == 0x1c)
+		c = 0xbc;
+	if(!isk1)
+		c1 ^= s;
+	else if(c1 == 0x1c)
+		c1 = 0xbc;
+	if(debug){
 		print(c, isk);
+		if(twolane)
+			print(c1, isk1);
+	}
+	if(isk != isk1 || isk1 && c != c1)
+		error("lanes disagree %x != %x", c, c1);
 	switch(state){
 	case START:
 		if(SS(c, isk) && SS(c0, isk0)){
@@ -194,8 +264,11 @@ out(uint8_t c, int isk)
 				state = VBL;
 			}else
 				fatal("invalid K char %x in attribute packet", c);
-		else
+		else{
 			buf[n++] = c;
+			if(twolane)
+				buf[n++] = c1;
+		}
 		break;
 	case VBL:
 		if(BE(c, isk)){
@@ -214,11 +287,15 @@ out(uint8_t c, int isk)
 			else if(FE(c, isk))
 				state = HDATA;
 			else
-				fatal("invalid K char %x in horizontal data", c);
+				error("invalid K char %x in horizontal data", c);
 		else{
 			bctr++;
+			bctr += twolane;
 			fifo++;
-			hdata(c, 0);
+			if(twolane)
+				hdata2(c, c1, 0);
+			else
+				hdata(c, 0);
 			if(fifo > 32)
 				error("fifo overrun");
 		}
@@ -231,6 +308,8 @@ out(uint8_t c, int isk)
 				fatal("invalid K char %x in horizontal fill", c);
 		break;
 	case HEND:
+		if(twolane && c != c1)
+			error("mismatch between lanes in BS sequence");
 		if(isk)
 			fatal("invalid K char %x in hblank header", c);
 		else switch(n){
@@ -252,12 +331,13 @@ out(uint8_t c, int isk)
 		default:
 			if(buf[n % 3] != c)
 				error("expected bytes following BS to repeat %x != %x", c, buf[(n+1 & 3) - 1]); 
-			if(n == 11){
+			if(n == (twolane ? 5 : 11)){
 				n = 0;
 				bctr = 0;
 				fifo = 0;
 				if(yctr == vheight){
 					hdata(0, 1);
+					hdata2(0, 0, 1);
 					note("completed frame");
 					state = VBL;
 				}else
@@ -289,6 +369,8 @@ out(uint8_t c, int isk)
 int
 main(int argc, char **argv)
 {
+	int dat0 = 0, dat1 = 0, isk0 = 0, isk1 = 0;
+
 	Verilated::commandArgs(argc, argv);
 	top = new Vval;
 	
@@ -299,14 +381,23 @@ main(int argc, char **argv)
 	tfp->open("obj_dir/sim.vcd");
 #endif
 	top->dpclk = 0;
+	top->twolane = twolane;
 	top->reset = 1;
 	while(!Verilated::gotFinish()){
 		if(main_time == 10)
 			top->reset = 0;
-		if((main_time & 1) == 1){
-			out(top->txdat0, top->txisk0 & 1);
-			out(top->txdat0 >> 8, top->txisk0 >> 1);
-		}
+		if((main_time & 1) == 1)
+			if(twolane){
+				out(dat1, isk1 & 1, top->txdat1, top->txisk1 & 1);
+				out(dat1 >> 8, isk1 >> 1, top->txdat1 >> 8, top->txisk1 >> 1);
+				dat1 = dat0;
+				dat0 = top->txdat0;
+				isk1 = isk0;
+				isk0 = top->txisk0;
+			}else{
+				out(top->txdat0, top->txisk0 & 1, top->txdat0, top->txisk0 & 1);
+				out(top->txdat0 >> 8, top->txisk0 >> 1, top->txdat0 >> 8, top->txisk0 >> 1);
+			}
 		top->dpclk = !top->dpclk;
 		top->eval();
 		main_time++;

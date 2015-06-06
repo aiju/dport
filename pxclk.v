@@ -20,7 +20,7 @@ module pxclk(
 	wire [15:0] misc = attr[143:128];
 	wire [23:0] Mvid = attr[167:144];
 	wire [23:0] Nvid = attr[191:168];
-	wire [15:0] sclkinc = attr[207:192];
+	wire [16:0] sclkinc = attr[208:192];
 
 	reg [30:0] pxctr;
 	reg [15:0] yctr;

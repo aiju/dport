@@ -47,7 +47,7 @@ module top(
 	
 
 	pxclk pxclk0(dpclk, attr, reset, dphstart, dpvstart, dmastart);
-	stuff stuff0(dpclk, fifoempty, fifodo, fiforden, dphstart, dpvstart, dmastart, dpdat0, dpdat1, dpisk0, dpisk1, attr, reset);
+	stuff stuff0(dpclk, fifoempty, 0, fifodo, fiforden, dphstart, dpvstart, dmastart, dpdat0, dpdat1, dpisk0, dpisk1, attr, reset);
 	scrambler scr0(dpclk, dpdat0, dpisk0, scrdat0, scrisk0);
 	scrambler scr1(dpclk, dpdat1, dpisk1, scrdat1, scrisk1);
 	phy phy0(dpclk, phymode, scrdat0, scrdat1, scrisk0, scrisk1, txdat0, txdat1, txisk0, txisk1);

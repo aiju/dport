@@ -86,7 +86,7 @@ module top(
 	wire fiforeset;
 	
 	wire speed;
-	wire [1:0] preemph;
+	wire [1:0] preemph, swing;
 	
 	wire clk = fclk[0];
 	wire resetn = fresetn[0];
@@ -106,7 +106,7 @@ module top(
 	regs regs0(clk, armaddr, armrdata, armwdata, armwr, armreq, armack, armwstrb, armerr,
 		auxaddr, auxwdata, auxreq, auxwr, auxack, auxerr, auxrdata,
 		debugaddr, debugreq, debugack, debugrdata,
-		attr, reset, phymode, prbssel, addrstart, addrend, speed, preemph);
+		attr, reset, phymode, prbssel, addrstart, addrend, speed, preemph, swing);
 	aux aux0(clk, auxaddr, auxwdata, auxreq, auxwr, auxack, auxerr, auxrdata, auxi, auxo, auxd);
 	pxclk pxclk0(dpclk, attr, reset, dphstart, dpvstart, dmastart);
 	assign debug = armack | (|armrdata);
@@ -139,7 +139,7 @@ module top(
 	scrambler scr0(dpclk, dpdat0, dpisk0, scrdat0, scrisk0);
 	scrambler scr1(dpclk, dpdat1, dpisk1, scrdat1, scrisk1);
 	phy phy0(dpclk, phymode, scrdat0, scrdat1, scrisk0, scrisk1, txdat0, txdat1, txisk0, txisk1);
-	gtp gtp0(clk, refclk, dpclk, gtpready, prbssel, txdat0, txdat1, txisk0, txisk1, tx, speed, preemph);
+	gtp gtp0(clk, refclk, dpclk, gtpready, prbssel, txdat0, txdat1, txisk0, txisk1, tx, speed, preemph, swing);
 	debugm debugm0(clk, dpclk, dpdat0[15:8] == `symBE && dpisk0[1], 1, dpdat0, dpdat1, dpisk0, dpisk1, debugaddr, debugreq, debugack, debugrdata);
 
 	wire auxi0;

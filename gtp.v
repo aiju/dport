@@ -12,7 +12,8 @@ module gtp(
 	input wire [1:0] tx1isk,
 	output wire [3:0] tx,
 	input wire speed,
-	input wire [1:0] preemph
+	input wire [1:0] preemph,
+	input wire [1:0] swing
 );
 
 	reg pllreset, txreset;
@@ -26,6 +27,7 @@ module gtp(
 	reg speed1, drpen;
 	reg [15:0] drpdi;
 	wire [4:0] postcursor = preemph == 3 ? 26 : preemph == 2 ? 20 : preemph == 1 ? 14 : 0;
+	wire [3:0] diffctrl = swing == 3 ? 13 : swing == 2 ? 9 : swing == 1 ? 6 : 3;
 	
 	always @(posedge clk) begin
 		speed1 <= speed0;
@@ -33,8 +35,8 @@ module gtp(
 		drpdi <= {10'b0010000000, speed0 ? 6'd3 : 6'd1};
 	end
 
-	gtpchan tx0(clk, txreset, tx0resetdone, prbssel, tx0data, tx0isk, tx0outclk, dpclk, pll0clk, pll1clk, pll0refclk, pll1refclk, tx[0], tx[1], postcursor);
-	gtpchan tx1(clk, txreset, tx1resetdone, prbssel, tx1data, tx1isk, tx1outclk, dpclk, pll0clk, pll1clk, pll0refclk, pll1refclk, tx[2], tx[3], postcursor);
+	gtpchan tx0(clk, txreset, tx0resetdone, prbssel, tx0data, tx0isk, tx0outclk, dpclk, pll0clk, pll1clk, pll0refclk, pll1refclk, tx[0], tx[1], postcursor, diffctrl);
+	gtpchan tx1(clk, txreset, tx1resetdone, prbssel, tx1data, tx1isk, tx1outclk, dpclk, pll0clk, pll1clk, pll0refclk, pll1refclk, tx[2], tx[3], postcursor, diffctrl);
 	BUFG bufg(.I(tx0outclk), .O(dpclk));
 	IBUFDS_GTE2 refclkbuf(.CEB(0), .I(refclkp[0]), .IB(refclkp[1]), .O(refclk));
 
@@ -163,7 +165,8 @@ module gtpchan(
 	input wire pll1refclk,
 	output wire txp,
 	output wire txn,
-	input wire [4:0] postcursor
+	input wire [4:0] postcursor,
+	input wire [3:0] diffctrl
 );
 
 	GTPE2_CHANNEL #
@@ -518,7 +521,7 @@ module gtpchan(
 	.GTPTXN                         (txn),
 	.GTPTXP                         (txp),
 	.TXBUFDIFFCTRL                  (3'b100),
-	.TXDIFFCTRL                     (4'b1000),
+	.TXDIFFCTRL                     (diffctrl),
 	.TXOUTCLK                       (txoutclk),
 	.TXOUTCLKSEL                    (3'b010),
 	.TXPOSTCURSOR                   (postcursor),

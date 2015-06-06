@@ -1,7 +1,7 @@
 `timescale 1 ns / 1 ps
 `default_nettype none
 
-`define ATTRMAX 208
+`define ATTRMAX 209
 `define symBS 8'hbc
 `define symBE 8'hfb
 `define symSS 8'h5c

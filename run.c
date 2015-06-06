@@ -84,60 +84,78 @@ void
 main()
 {
 	ulong *r;
-	uchar *rr;
+	uchar *rr, s;
 	ulong addr;
+	int twolane, fast, emph, swing;
+	
+	twolane = 1;
+	fast = 1;
+	emph = 1;
+	swing = 1;
 	
 	r = segattach(0, "axi", nil, 1048576*4);
 	if(r == (ulong*)-1)
 		sysfatal("segattach: %r");
 	r[CTRL] = 0;
-	r[MODE] = 3;
-	sleep(1000);
+	r[MODE] = swing << 6 | emph << 4 | twolane << 1 | fast;
 	rr = (uchar*)r + 1048576;
-	rr[LINK_BW_SET] = 0x0A;
-	rr[LANE_COUNT_SET] = 0x1;
+	rr[LINK_BW_SET] = fast ? 0x0A : 0x06;
+	rr[LANE_COUNT_SET] = twolane + 1;
 	rr[TRAINING_PATTERN_SET] = 0x21;
 	r[CTRL] = 2;
-	do
+	do{
 		sleep(10);
-	while((rr[LANE0_1_STATUS] & LANE0_CR_DONE) == 0);
+		s = rr[LANE0_1_STATUS];
+		if(twolane)
+			s &= s >> 4;
+	}while((s & LANE0_CR_DONE) == 0);
 	rr[TRAINING_PATTERN_SET] = 0x22;
 	r[CTRL] = 3;
-	do
+	do{
 		sleep(10);
-	while((rr[LANE0_1_STATUS] & (LANE0_CR_DONE|LANE0_CHANNEL_EQ_DONE|LANE0_SYMBOL_LOCKED)) != 7);
+		s = rr[LANE0_1_STATUS];
+		if(twolane)
+			s &= s >> 4;
+	}while((rr[LANE0_1_STATUS] & (LANE0_CR_DONE|LANE0_CHANNEL_EQ_DONE|LANE0_SYMBOL_LOCKED)) != 7);
 /*	r[HVACT] = 640 << 16 | 480;
 	r[HVTOT] = 800 << 16 | 525;
 	r[HVSYNC] = 0x80608002;
 	r[HVDATA] = 144 << 16 | 35;
-	r[MVID] = 42;
-	r[NVID] = 275;
-	r[SCLK] = 0x2719;
-//	r[MVID] = 25;
-//	r[NVID] = 270;
-//	r[SCLK] = 5958;
-	r[MISC] = 0x21;*/
+	r[MVID] = fast ? 25 : 42;
+	r[NVID] = fast ? 270 : 275;
+	r[SCLK] = fast ? 5958 : 0x2719;*/
 	
-	r[HVACT] = 1024 << 16 | 768;
+/*	r[HVACT] = 1024 << 16 | 768;
 	r[HVTOT] = 1328 << 16 | 806;
 	r[HVSYNC] = 0x80008000 | 136 << 16 | 6;
 	r[HVDATA] = 280 << 16 | 35;
-	r[MVID] = 5;
-	r[NVID] = 18;
-	r[SCLK] = 18204;
+	r[MVID] = fast ? 5 : 25;
+	r[NVID] = fast ? 18 : 54;
+	r[SCLK] = fast ? 18204 : 30341; */
+	
+	r[HVACT] = 1280 << 16 | 1024;
+	r[HVTOT] = 1688 << 16 | 1066;
+	r[HVSYNC] = 112 << 16 | 3;
+	r[HVDATA] = 360 << 16 | 41;
+	r[MVID] = 2;
+	r[NVID] = 5;
+	r[SCLK] = 26214;
 	
 	r[MISC] = 0x21;
 	
 	addr = getpa();
 	r[START] = addr;
-	r[END] = addr + 1024*768*4;
-	r[CTRL] = 1<<31 | 1;
-
+	r[END] = addr + 1280*1024*4;
+	
 	rr[TRAINING_PATTERN_SET] = 0;
 
+	sleep(10);
+	
+	r[CTRL] = 1<<31 | 1;
 
-	for(;;){
-		sleep(100);
+
+{//	for(;;){
+		sleep(1000);
 		print("%x\n", rr[0x202]);
 	}
 }

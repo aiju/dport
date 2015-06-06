@@ -34,7 +34,8 @@ module regs(
 	output reg [31:0] addrend,
 	
 	output reg speed,
-	output reg [1:0] preemph
+	output reg [1:0] preemph,
+	output reg [1:0] swing
 );
 
 	reg armreq0;
@@ -70,7 +71,9 @@ module regs(
 						end
 						'h04: begin
 							speed <= armwdata[0];
-							preemph <= armwdata[2:1];
+							attr[209] <= armwdata[1];
+							preemph <= armwdata[5:4];
+							swing <= armwdata[7:6];
 						end
 						'h08: addrstart <= armwdata;
 						'h0c: addrend <= armwdata;
@@ -78,13 +81,10 @@ module regs(
 						'h44: attr[63:32] <= armwdata;
 						'h48: attr[95:64] <= armwdata;
 						'h4c: attr[127:96] <= armwdata;
-						'h50: begin
-							attr[143:128] <= armwdata[15:0];
-							attr[208] <= armwdata[16];
-						end
+						'h50: attr[143:128] <= armwdata[15:0];
 						'h54: attr[167:144] <= armwdata[23:0];
 						'h58: attr[191:168] <= armwdata[23:0];
-						'h5c: attr[207:192] <= armwdata[15:0];
+						'h5c: attr[208:192] <= armwdata[16:0];
 						default: armack <= 0;
 						endcase
 					end

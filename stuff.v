@@ -46,8 +46,8 @@ module stuff(
 	wire [15:0] misc = attr[143:128];
 	wire [23:0] Mvid = attr[167:144];
 	wire [23:0] Nvid = attr[191:168];
-	wire [15:0] sclkinc = attr[207:192];
-	wire twolane = attr[208];
+	wire [15:0] sclkinc = twolane ? {1'b0, attr[208:193]} : attr[207:192];
+	wire twolane = attr[209];
 	
 	reg [23:0] px[0:3];
 	reg [2:0] pxfill, pxfill_;
@@ -146,6 +146,8 @@ module stuff(
 				if(pxfill >= 3) begin
 					state_ = ACTIVE;
 					xrem_ = (hact << 1) + hact;
+					if(twolane)
+						xrem_ = xrem_ + 1 >> 1;
 					yrem_ = vact;
 					vstart_ = 0;
 					hstart_ = 0;
@@ -159,6 +161,8 @@ module stuff(
 			end else if(hstart_ && yrem > 0 && pxfill >= 3) begin
 				state_ = ACTIVE;
 				xrem_ = (hact << 1) + hact;
+				if(twolane)
+					xrem_ = xrem_ + 1 >> 1;
 				ctr_ = 0;
 				hstart_ = 0;
 				dpdat0_ = {`symBE, 8'b0};
@@ -189,7 +193,7 @@ module stuff(
 			end
 			2: begin
 				dpdat0_ = {px[twolane ? 2 : 1][7:0], px[0][23:16]};
-				dpdat1_ = {px[3][7:0], px[1][7:0]};
+				dpdat1_ = {px[3][7:0], px[1][23:16]};
 			end
 			endcase
 			ctr_ = ctr + 1;
@@ -198,6 +202,7 @@ module stuff(
 				dpdat0_ = {8'b0, `symFS};
 				dpdat1_ = {8'b0, `symFS};
 				dpisk0_ = 2'b01;
+				dpisk1_ = 2'b01;
 				if(xrem == 0) begin
 					dpdat0_ = {7'b0, yrem == 1, `symBS};
 					dpdat1_ = {7'b0, yrem == 1, `symBS};
@@ -274,26 +279,30 @@ module stuff(
 					dpdat1_ = {vsync[15:8], vdata[7:0]};
 				end
 				5: begin
-					dpdat0_ = {Mvid[15:8], Mvid[23:16]};
-					dpdat1_ = {Mvid[15:8], Mvid[23:16]};
+					dpdat0_ = {Mvid[23:16], hsync[7:0]};
+					dpdat1_ = {Mvid[23:16], vsync[7:0]};
 				end
 				6: begin
-					dpdat0_ = {hact[15:8], Mvid[7:0]};
-					dpdat1_ = {Nvid[23:16], Mvid[7:0]};
+					dpdat0_ = {Mvid[7:0], Mvid[15:8]};
+					dpdat1_ = {Mvid[7:0], Mvid[15:8]};
 				end
 				7: begin
-					dpdat0_ = {vact[15:8], hact[7:0]};
-					dpdat1_ = {Nvid[7:0], Nvid[15:8]};
+					dpdat0_ = {hact[7:0], hact[15:8]};
+					dpdat1_ = {Nvid[15:8], Nvid[23:16]};
 				end
 				8: begin
-					dpdat0_ = {8'b00, vact[7:0]};
-					dpdat1_ = misc;
+					dpdat0_ = {vact[7:0], vact[15:8]};
+					dpdat1_ = {misc[7:0], Nvid[7:0]};
 				end
 				9: begin
-					dpdat0_ = {`symSE, 8'b0};
-					dpdat1_ = {`symSE, 8'b0};
-					dpisk0_ = 2'b10;
-					dpisk1_ = 2'b10;
+					dpdat0_ = 0;
+					dpdat1_ = {8'b0, misc[15:8]};
+				end
+				10: begin
+					dpdat0_ = {8'b0, `symSE};
+					dpdat1_ = {8'b0, `symSE};
+					dpisk0_ = 2'b01;
+					dpisk1_ = 2'b01;
 					ctr_ = 0;
 					state_ = IDLE;
 				end
