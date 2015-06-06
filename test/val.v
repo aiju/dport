@@ -13,8 +13,22 @@ module top(
 	wire [1:0] dpisk0, dpisk1, scrisk0, scrisk1;
 	wire [2:0] phymode;
 	wire [15:0] dpdat0, dpdat1, scrdat0, scrdat1;
-	wire [47:0] fifodo;
+	reg [47:0] fifodo;
+	reg [31:0] prng;
 	wire [`ATTRMAX:0] attr;
+	wire dmastart;
+	
+	always @(posedge dpclk) begin
+		if(dmastart) begin
+			prng = 0;
+			fifodo <= 0;
+		end else if(fiforden) begin
+			fifodo[23:0] <= prng[23:0];
+			prng = 1664525 * prng + 1013904223;
+			fifodo[47:24] <= prng[23:0];
+			prng = 1664525 * prng + 1013904223;
+		end
+	end
 	
 	assign attr[15:0] = 480; // vact
 	assign attr[31:16] = 640; // hact
@@ -30,10 +44,10 @@ module top(
 	assign attr[207:192] = 'h2719; // sclkinc
 	assign attr[208] = twolane;
 	assign phymode = 1;
+	
 
-	pxclk pxclk0(dpclk, attr, reset, dphstart, dpvstart);
-	assign fifodo = 48'hFFCCAAFFCCAA;
-	stuff stuff0(dpclk, fifoempty, fifodo, fiforden, dphstart, dpvstart, dpdat0, dpdat1, dpisk0, dpisk1, attr, reset);
+	pxclk pxclk0(dpclk, attr, reset, dphstart, dpvstart, dmastart);
+	stuff stuff0(dpclk, fifoempty, fifodo, fiforden, dphstart, dpvstart, dmastart, dpdat0, dpdat1, dpisk0, dpisk1, attr, reset);
 	scrambler scr0(dpclk, dpdat0, dpisk0, scrdat0, scrisk0);
 	scrambler scr1(dpclk, dpdat1, dpisk1, scrdat1, scrisk1);
 	phy phy0(dpclk, phymode, scrdat0, scrdat1, scrisk0, scrisk1, txdat0, txdat1, txisk0, txisk1);

@@ -134,6 +134,29 @@ parseattr(uint8_t *p, int n)
 }
 
 void
+hdata(uint8_t c, int reset)
+{
+	static uint32_t prng;
+	static int n = 4;
+	uint8_t d;
+	
+	if(reset){
+		n = 4;
+		prng = 0;
+		return;
+	}
+	d = prng >> 8 * n;
+	if(d != c)
+		error("wrong byte %x != %x", c, d);
+	if(++n == 3){
+		prng = 1664525 * prng + 1013904223;
+		n = 0;
+	}
+	if(n == 10)
+		n = 0;
+}
+
+void
 out(uint8_t c, int isk)
 {
 	static int state;
@@ -195,6 +218,7 @@ out(uint8_t c, int isk)
 		else{
 			bctr++;
 			fifo++;
+			hdata(c, 0);
 			if(fifo > 32)
 				error("fifo overrun");
 		}
@@ -233,6 +257,7 @@ out(uint8_t c, int isk)
 				bctr = 0;
 				fifo = 0;
 				if(yctr == vheight){
+					hdata(0, 1);
 					note("completed frame");
 					state = VBL;
 				}else

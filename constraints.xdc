@@ -14,7 +14,7 @@ set_property PACKAGE_PIN D2 [get_ports debug2]
 set_property IOSTANDARD LVCMOS33 [get_ports debug2]
 
 create_clock -name FCLK -period 10.000 [get_pins {PS7_0/FCLKCLK[0]}]
-create_clock -name DPCLK -period 12.500 [get_nets dpclk]
+create_clock -name DPCLK -period 7.4 [get_nets dpclk]
 set_false_path -from [get_clocks FCLK] -to [get_clocks DPCLK]
 
 set_property BITSTREAM.GENERAL.COMPRESS TRUE [current_design]

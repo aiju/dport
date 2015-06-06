@@ -5,7 +5,8 @@ module pxclk(
 	input wire [`ATTRMAX:0] attr,
 	input wire reset,
 	output reg dphstart,
-	output reg dpvstart
+	output reg dpvstart,
+	output reg dmastart
 );
 
 	wire [15:0] vact = attr[15:0];
@@ -25,6 +26,7 @@ module pxclk(
 	reg [15:0] yctr;
 	always @(posedge clk) begin
 		dpvstart <= 0;
+		dmastart <= 0;
 		if(pxctr[30:15] >= htot) begin
 			pxctr <= pxctr - {htot, 15'd0} + {15'd0, sclkinc};
 			dphstart <= 1;
@@ -33,6 +35,8 @@ module pxclk(
 				yctr <= 0;
 			end else
 				yctr <= yctr + 1;
+			if(yctr == vtot-1)
+				dmastart <= 1;
 		end else begin
 			pxctr <= pxctr + {15'd0, sclkinc};
 			dphstart <= 0;
@@ -42,6 +46,7 @@ module pxclk(
 			yctr <= 0;
 			dphstart <= 0;
 			dpvstart <= 0;
+			dmastart <= 0;
 		end
 	end
 

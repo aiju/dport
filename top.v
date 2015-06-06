@@ -42,6 +42,21 @@ module top(
 	wire gp0_rlast;
 	wire [11:0] gp0_rid;
 	wire [31:0] gp0_rdata;
+	
+	wire hp0_arvalid;
+	wire hp0_arready;
+	wire [1:0] hp0_arburst;
+	wire [2:0] hp0_arsize;
+	wire [3:0] hp0_arlen;
+	wire [11:0] hp0_arid;
+	wire [31:0] hp0_araddr;
+
+	wire hp0_rvalid;
+	wire hp0_rready;
+	wire [1:0] hp0_rresp;
+	wire hp0_rlast;
+	wire [11:0] hp0_rid;
+	wire [63:0] hp0_rdata;
 
 	wire [31:0] armaddr;
 	wire [31:0] armrdata, armwdata;
@@ -58,13 +73,20 @@ module top(
 	wire [31:0] debugrdata;
 	wire debugreq, debugack;
 	
-	wire dpclk, fifoempty, fiforden, dphstart, dpvstart, reset, gtpready;
+	wire dpclk, fifowren, fifoempty, fifoalfull, fiforden, dphstart, dpvstart, reset, gtpready;
 	wire [1:0] dpisk0, dpisk1, scrisk0, scrisk1, txisk0, txisk1;
 	wire [2:0] phymode, prbssel;
 	wire [3:0] fclk, fresetn;
 	wire [15:0] dpdat0, dpdat1, scrdat0, scrdat1, txdat0, txdat1;
-	wire [47:0] fifodo;
+	wire [47:0] fifodi, fifodo;
 	wire [`ATTRMAX:0] attr;
+	
+	wire [31:0] addrstart, addrend;
+	wire dmastart;
+	wire fiforeset;
+	
+	wire speed;
+	wire [1:0] preemph;
 	
 	wire clk = fclk[0];
 	wire resetn = fresetn[0];
@@ -84,21 +106,41 @@ module top(
 	regs regs0(clk, armaddr, armrdata, armwdata, armwr, armreq, armack, armwstrb, armerr,
 		auxaddr, auxwdata, auxreq, auxwr, auxack, auxerr, auxrdata,
 		debugaddr, debugreq, debugack, debugrdata,
-		attr, reset, phymode, prbssel);
+		attr, reset, phymode, prbssel, addrstart, addrend, speed, preemph);
 	aux aux0(clk, auxaddr, auxwdata, auxreq, auxwr, auxack, auxerr, auxrdata, auxi, auxo, auxd);
-	pxclk pxclk0(dpclk, attr, reset, dphstart, dpvstart);
-	reg r0, r1;
-	always @(posedge dpclk) r0 <= r0 ^ dphstart;
-	always @(posedge dpclk) r1 <= r1 ^ dpvstart;
-	assign debug = r0 | armack | (|armrdata);
-	assign debug2 = r1;
-	assign fifodo = 'hFFCCAAFFCCAA;
-	stuff stuff0(dpclk, fifoempty, fifodo, fiforden, dphstart, dpvstart, dpdat0, dpdat1, dpisk0, dpisk1, attr, reset);
+	pxclk pxclk0(dpclk, attr, reset, dphstart, dpvstart, dmastart);
+	assign debug = armack | (|armrdata);
+	assign debug2 = 0;
+	
+	dma dma0(clk, reset, dpclk, dmastart,
+		fifodi, fifowren, fifoalfull, fiforeset, addrstart, addrend,
+		hp0_araddr, hp0_arid, hp0_arlen, hp0_arsize, hp0_arburst, hp0_arready, hp0_arvalid,
+		hp0_rdata, hp0_rid, hp0_rlast, hp0_rready, hp0_rresp, hp0_rvalid
+	);
+	FIFO36E1 #(
+		.DATA_WIDTH("72"),
+		.SIM_DEVICE("7SERIES"),
+		.FIFO_MODE("FIFO36_72"),
+		.ALMOST_FULL_OFFSET(32),
+		.FIRST_WORD_FALL_THROUGH("TRUE")
+	) fifo(
+		.WRCLK(clk),
+		.WREN(fifowren),
+		.DI(fifodi),
+		.ALMOSTFULL(fifoalfull),
+		
+		.RDCLK(dpclk),
+		.DO(fifodo),
+		.RDEN(fiforden && !fiforeset),
+		.EMPTY(fifoempty),
+		.RST(fiforeset)
+	);
+	stuff stuff0(dpclk, fifoempty, fiforeset, fifodo, fiforden, dphstart, dpvstart, dmastart, dpdat0, dpdat1, dpisk0, dpisk1, attr, reset);
 	scrambler scr0(dpclk, dpdat0, dpisk0, scrdat0, scrisk0);
 	scrambler scr1(dpclk, dpdat1, dpisk1, scrdat1, scrisk1);
 	phy phy0(dpclk, phymode, scrdat0, scrdat1, scrisk0, scrisk1, txdat0, txdat1, txisk0, txisk1);
-	gtp gtp0(clk, refclk, dpclk, gtpready, prbssel, txdat0, txdat1, txisk0, txisk1, tx);
-	debugm debugm0(clk, dpclk, dpdat0, dpdat1, dpisk0, dpisk1, debugaddr, debugreq, debugack, debugrdata);
+	gtp gtp0(clk, refclk, dpclk, gtpready, prbssel, txdat0, txdat1, txisk0, txisk1, tx, speed, preemph);
+	debugm debugm0(clk, dpclk, dpdat0[15:8] == `symBE && dpisk0[1], 1, dpdat0, dpdat1, dpisk0, dpisk1, debugaddr, debugreq, debugack, debugrdata);
 
 	wire auxi0;
 	sync auxsync(clk, !auxi0, auxi);
@@ -146,6 +188,21 @@ module top(
 		.MAXIGP0BRESP(gp0_bresp),
 		.MAXIGP0RRESP(gp0_rresp),
 		.MAXIGP0RDATA(gp0_rdata),
+	
+		.SAXIHP0ACLK(clk),
+		.SAXIHP0ARVALID(hp0_arvalid),
+		.SAXIHP0ARREADY(hp0_arready),
+		.SAXIHP0ARSIZE(hp0_arsize),
+		.SAXIHP0ARLEN(hp0_arlen),
+		.SAXIHP0ARBURST(hp0_arburst),
+		.SAXIHP0ARID(hp0_arid),
+		.SAXIHP0ARADDR(hp0_araddr),
+		.SAXIHP0RVALID(hp0_rvalid),
+		.SAXIHP0RREADY(hp0_rready),
+		.SAXIHP0RID(hp0_rid),
+		.SAXIHP0RDATA(hp0_rdata),
+		.SAXIHP0RRESP(hp0_rresp),
+		.SAXIHP0RLAST(hp0_rlast),
 
 		.FCLKCLK(fclk),
 		.FCLKRESETN(fresetn)

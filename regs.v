@@ -28,7 +28,13 @@ module regs(
 	output reg [`ATTRMAX:0] attr,
 	output reg reset,
 	output reg [2:0] phymode,
-	output reg [2:0] prbssel
+	output reg [2:0] prbssel,
+	
+	output reg [31:0] addrstart,
+	output reg [31:0] addrend,
+	
+	output reg speed,
+	output reg [1:0] preemph
 );
 
 	reg armreq0;
@@ -62,6 +68,12 @@ module regs(
 							prbssel <= armwdata[5:3];
 							phymode <= armwdata[2:0];
 						end
+						'h04: begin
+							speed <= armwdata[0];
+							preemph <= armwdata[2:1];
+						end
+						'h08: addrstart <= armwdata;
+						'h0c: addrend <= armwdata;
 						'h40: attr[31:0] <= armwdata;
 						'h44: attr[63:32] <= armwdata;
 						'h48: attr[95:64] <= armwdata;

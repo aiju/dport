@@ -10,7 +10,9 @@ module gtp(
 	input wire [15:0] tx1data,
 	input wire [1:0] tx0isk,
 	input wire [1:0] tx1isk,
-	output wire [3:0] tx
+	output wire [3:0] tx,
+	input wire speed,
+	input wire [1:0] preemph
 );
 
 	reg pllreset, txreset;
@@ -19,9 +21,20 @@ module gtp(
 	wire tx0resetdone, tx1resetdone, tx0resetdones, tx1resetdones;
 	wire tx0outclk, tx1outclk;
 	wire refclk;
+	wire speed0;
+	sync speedsync(clk, speed, speed0);
+	reg speed1, drpen;
+	reg [15:0] drpdi;
+	wire [4:0] postcursor = preemph == 3 ? 26 : preemph == 2 ? 20 : preemph == 1 ? 14 : 0;
+	
+	always @(posedge clk) begin
+		speed1 <= speed0;
+		drpen <= speed1 != speed0;
+		drpdi <= {10'b0010000000, speed0 ? 6'd3 : 6'd1};
+	end
 
-	gtpchan tx0(clk, txreset, tx0resetdone, prbssel, tx0data, tx0isk, tx0outclk, dpclk, pll0clk, pll1clk, pll0refclk, pll1refclk, tx[0], tx[1]);
-	gtpchan tx1(clk, txreset, tx1resetdone, prbssel, tx1data, tx1isk, tx1outclk, dpclk, pll0clk, pll1clk, pll0refclk, pll1refclk, tx[2], tx[3]);
+	gtpchan tx0(clk, txreset, tx0resetdone, prbssel, tx0data, tx0isk, tx0outclk, dpclk, pll0clk, pll1clk, pll0refclk, pll1refclk, tx[0], tx[1], postcursor);
+	gtpchan tx1(clk, txreset, tx1resetdone, prbssel, tx1data, tx1isk, tx1outclk, dpclk, pll0clk, pll1clk, pll0refclk, pll1refclk, tx[2], tx[3], postcursor);
 	BUFG bufg(.I(tx0outclk), .O(dpclk));
 	IBUFDS_GTE2 refclkbuf(.CEB(0), .I(refclkp[0]), .IB(refclkp[1]), .O(refclk));
 
@@ -79,7 +92,12 @@ module gtp(
 	.BGMONITORENB                   (1),
 	.BGPDB                          (1),
 	.BGRCALOVRD                     (5'b11111),
-	.RCALENB                        (1)
+	.RCALENB                        (1),
+	.DRPCLK                         (clk),
+	.DRPADDR                        (4),
+	.DRPEN                          (drpen),
+	.DRPWE                          (1),
+	.DRPDI                          (drpdi)
 	);
 
 	reg [2:0] state;
@@ -91,7 +109,7 @@ module gtp(
 
 	initial state = 0;
 	initial gtpready = 0;
-	always @(posedge clk)
+	always @(posedge clk) begin
 		case(state)
 		0: begin
 			pllreset <= 1;
@@ -124,6 +142,9 @@ module gtp(
 				state <= 5;
 			end
 		endcase
+		if(speed0 != speed1)
+			state <= 0;
+	end
 
 endmodule
 
@@ -141,7 +162,8 @@ module gtpchan(
 	input wire pll0refclk,
 	input wire pll1refclk,
 	output wire txp,
-	output wire txn
+	output wire txn,
+	input wire [4:0] postcursor
 );
 
 	GTPE2_CHANNEL #
@@ -499,6 +521,7 @@ module gtpchan(
 	.TXDIFFCTRL                     (4'b1000),
 	.TXOUTCLK                       (txoutclk),
 	.TXOUTCLKSEL                    (3'b010),
+	.TXPOSTCURSOR                   (postcursor),
 
 	.TXRESETDONE                    (txresetdone),
 	.TXPRBSSEL                      (prbssel),

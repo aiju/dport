@@ -3,11 +3,13 @@
 module stuff(
 	input wire dpclk,
 	input wire fifoempty,
+	input wire fiforeset,
 	input wire [47:0] fifodo,
 	output reg fiforden,
 	
 	input wire dphstart,
 	input wire dpvstart,
+	input wire dmastart,
 	
 	output reg [15:0] dpdat0,
 	output reg [15:0] dpdat1,
@@ -20,6 +22,9 @@ module stuff(
 
 	parameter MAXCTR = 15;
 
+	reg [15:0] dpdat0_, dpdat1_;
+	reg [1:0] dpisk0_, dpisk1_;
+	
 	reg [3:0] state, state_;
 	localparam IDLE = 0;
 	localparam ACTIVE = 1;
@@ -80,6 +85,10 @@ module stuff(
 			yrem <= yrem_;
 			pxfill <= pxfill_;
 		end
+		dpdat0 <= dpdat0_;
+		dpdat1 <= dpdat1_;
+		dpisk0 <= dpisk0_;
+		dpisk1 <= dpisk1_;
 		if(tufreset)
 			tufctr <= tufinc;
 		else if(tufstep) begin
@@ -107,9 +116,11 @@ module stuff(
 		pxfill_ = pxfill;
 		if(pxcons)
 			pxfill_ = pxfill_ - (twolane ? 2 : 1);
-		fiforden = !fifoempty && pxfill_ < 3 && !reset;
+		fiforden = !fifoempty && !fiforeset && pxfill_ < 3 && !reset;
 		if(fiforden)
 			pxfill_ = pxfill_ + 2;
+		if(dmastart)
+			pxfill_ = 0;
 	end
 
 	always @(*) begin
@@ -121,10 +132,10 @@ module stuff(
 		ctr_ = ctr;
 		xrem_ = xrem;
 		yrem_ = yrem;
-		dpdat0 = 0;
-		dpdat1 = 0;
-		dpisk0 = 0;
-		dpisk1 = 0;
+		dpdat0_ = 0;
+		dpdat1_ = 0;
+		dpisk0_ = 0;
+		dpisk1_ = 0;
 		pxcons = 0;
 		tufreset = 0;
 		tufstep = 0;
@@ -138,10 +149,10 @@ module stuff(
 					yrem_ = vact;
 					vstart_ = 0;
 					hstart_ = 0;
-					dpdat0 = {`symBE, 8'b0};
-					dpdat1 = {`symBE, 8'b0};
-					dpisk0 = 2'b10;
-					dpisk1 = 2'b10;
+					dpdat0_ = {`symBE, 8'b0};
+					dpdat1_ = {`symBE, 8'b0};
+					dpisk0_ = 2'b10;
+					dpisk1_ = 2'b10;
 					tufreset = 1;
 					tuctr_ = tufincround[16:11];
 				end
@@ -150,17 +161,17 @@ module stuff(
 				xrem_ = (hact << 1) + hact;
 				ctr_ = 0;
 				hstart_ = 0;
-				dpdat0 = {`symBE, 8'b0};
-				dpdat1 = {`symBE, 8'b0};
-				dpisk0 = 2'b10;
-				dpisk1 = 2'b10;
+				dpdat0_ = {`symBE, 8'b0};
+				dpdat1_ = {`symBE, 8'b0};
+				dpisk0_ = 2'b10;
+				dpisk1_ = 2'b10;
 				tufreset = 1;
 				tuctr_ = tufincround[16:11];
 			end else if(hstart_ && yrem == 0) begin
-				dpdat0 = {8'h1, `symBS};
-				dpdat1 = {8'h1, `symBS};
-				dpisk0 = 2'b01;
-				dpisk1 = 2'b01;
+				dpdat0_ = {8'h1, `symBS};
+				dpdat1_ = {8'h1, `symBS};
+				dpisk0_ = 2'b01;
+				dpisk1_ = 2'b01;
 				ctr_ = 1;
 				hstart_ = 0;
 				state_ = VBID;
@@ -169,34 +180,34 @@ module stuff(
 		ACTIVE: begin
 			case(pxrem)
 			0: begin
-				dpdat0 = px[0][15:0];
-				dpdat1 = px[1][15:0];
+				dpdat0_ = px[0][15:0];
+				dpdat1_ = px[1][15:0];
 			end
 			1: begin
-				dpdat0 = px[0][23:8];
-				dpdat1 = px[1][23:8];
+				dpdat0_ = px[0][23:8];
+				dpdat1_ = px[1][23:8];
 			end
 			2: begin
-				dpdat0 = {px[twolane ? 2 : 1][7:0], px[0][23:16]};
-				dpdat1 = {px[3][7:0], px[1][7:0]};
+				dpdat0_ = {px[twolane ? 2 : 1][7:0], px[0][23:16]};
+				dpdat1_ = {px[3][7:0], px[1][7:0]};
 			end
 			endcase
 			ctr_ = ctr + 1;
 			if(tuctr == 0 || xrem == 0) begin
 				state_ = STUFF;
-				dpdat0 = {8'b0, `symFS};
-				dpdat1 = {8'b0, `symFS};
-				dpisk0 = 2'b01;
+				dpdat0_ = {8'b0, `symFS};
+				dpdat1_ = {8'b0, `symFS};
+				dpisk0_ = 2'b01;
 				if(xrem == 0) begin
-					dpdat0 = {7'b0, yrem == 1, `symBS};
-					dpdat1 = {7'b0, yrem == 1, `symBS};
+					dpdat0_ = {7'b0, yrem == 1, `symBS};
+					dpdat1_ = {7'b0, yrem == 1, `symBS};
 					state_ = VBID;
 					ctr_ = 1;
 				end else if(ctr == MAXCTR) begin
-					dpdat0[15:8] = `symFE;
-					dpdat1[15:8] = `symFE;
-					dpisk0[1] = 1;
-					dpisk1[1] = 1;
+					dpdat0_[15:8] = `symFE;
+					dpdat1_[15:8] = `symFE;
+					dpisk0_[1] = 1;
+					dpisk1_[1] = 1;
 					state_ = ACTIVE;
 					ctr_ = 0;
 				end
@@ -209,14 +220,14 @@ module stuff(
 				if(xrem_ == 0) begin
 					state_ = VBID;
 					ctr_ = 0;
-					dpdat0[15:8] = `symBS;
-					dpdat1[15:8] = `symBS;
+					dpdat0_[15:8] = `symBS;
+					dpdat1_[15:8] = `symBS;
 				end else begin
-					dpdat0[15:8] = `symFS;
-					dpdat1[15:8] = `symFS;
+					dpdat0_[15:8] = `symFS;
+					dpdat1_[15:8] = `symFS;
 				end
-				dpisk0[1] = 1;
-				dpisk1[1] = 1;
+				dpisk0_[1] = 1;
+				dpisk1_[1] = 1;
 			end else begin
 				pxrem_ = pxrem == 0 ? 2 : pxrem - 1;
 				pxcons = pxrem != 0;
@@ -226,10 +237,10 @@ module stuff(
 		end
 		STUFF: begin
 			if(ctr == MAXCTR) begin
-				dpdat0[15:8] = `symFE;
-				dpdat1[15:8] = `symFE;
-				dpisk0[1] = 1;
-				dpisk1[1] = 1;
+				dpdat0_[15:8] = `symFE;
+				dpdat1_[15:8] = `symFE;
+				dpisk0_[1] = 1;
+				dpisk1_[1] = 1;
 				ctr_ = 0;
 				state_ = ACTIVE;
 				tufstep = 1;
@@ -241,48 +252,48 @@ module stuff(
 			if(twolane)
 				case(ctr)
 				0: begin
-					dpdat0 = {`symSS, `symSS};
-					dpdat1 = {`symSS, `symSS};
-					dpisk0 = 3;
-					dpisk1 = 3;
+					dpdat0_ = {`symSS, `symSS};
+					dpdat1_ = {`symSS, `symSS};
+					dpisk0_ = 3;
+					dpisk1_ = 3;
 				end
 				1: begin
-					dpdat0 = {Mvid[15:8], Mvid[23:16]};
-					dpdat1 = {Mvid[15:8], Mvid[23:16]};
+					dpdat0_ = {Mvid[15:8], Mvid[23:16]};
+					dpdat1_ = {Mvid[15:8], Mvid[23:16]};
 				end
 				2: begin
-					dpdat0 = {htot[15:8], Mvid[7:0]};
-					dpdat1 = {hdata[15:8], Mvid[7:0]};
+					dpdat0_ = {htot[15:8], Mvid[7:0]};
+					dpdat1_ = {hdata[15:8], Mvid[7:0]};
 				end
 				3: begin
-					dpdat0 = {vtot[15:8], htot[7:0]};
-					dpdat1 = {vdata[15:8], hdata[7:0]};
+					dpdat0_ = {vtot[15:8], htot[7:0]};
+					dpdat1_ = {vdata[15:8], hdata[7:0]};
 				end
 				4: begin
-					dpdat0 = {hsync[15:8], vtot[7:0]};
-					dpdat1 = {vsync[15:8], vdata[7:0]};
+					dpdat0_ = {hsync[15:8], vtot[7:0]};
+					dpdat1_ = {vsync[15:8], vdata[7:0]};
 				end
 				5: begin
-					dpdat0 = {Mvid[15:8], Mvid[23:16]};
-					dpdat1 = {Mvid[15:8], Mvid[23:16]};
+					dpdat0_ = {Mvid[15:8], Mvid[23:16]};
+					dpdat1_ = {Mvid[15:8], Mvid[23:16]};
 				end
 				6: begin
-					dpdat0 = {hact[15:8], Mvid[7:0]};
-					dpdat1 = {Nvid[23:16], Mvid[7:0]};
+					dpdat0_ = {hact[15:8], Mvid[7:0]};
+					dpdat1_ = {Nvid[23:16], Mvid[7:0]};
 				end
 				7: begin
-					dpdat0 = {vact[15:8], hact[7:0]};
-					dpdat1 = {Nvid[7:0], Nvid[15:8]};
+					dpdat0_ = {vact[15:8], hact[7:0]};
+					dpdat1_ = {Nvid[7:0], Nvid[15:8]};
 				end
 				8: begin
-					dpdat0 = {8'b00, vact[7:0]};
-					dpdat1 = misc;
+					dpdat0_ = {8'b00, vact[7:0]};
+					dpdat1_ = misc;
 				end
 				9: begin
-					dpdat0 = {`symSE, 8'b0};
-					dpdat1 = {`symSE, 8'b0};
-					dpisk0 = 2'b10;
-					dpisk1 = 2'b10;
+					dpdat0_ = {`symSE, 8'b0};
+					dpdat1_ = {`symSE, 8'b0};
+					dpisk0_ = 2'b10;
+					dpisk1_ = 2'b10;
 					ctr_ = 0;
 					state_ = IDLE;
 				end
@@ -290,30 +301,30 @@ module stuff(
 			else
 				case(ctr)
 				0: begin
-					dpdat0 = {`symSS, `symSS};
-					dpisk0 = 3;
+					dpdat0_ = {`symSS, `symSS};
+					dpisk0_ = 3;
 				end
-				1: dpdat0 = {Mvid[15:8], Mvid[23:16]};
-				2: dpdat0 = {htot[15:8], Mvid[7:0]};
-				3: dpdat0 = {vtot[15:8], htot[7:0]};
-				4: dpdat0 = {hsync[15:8], vtot[7:0]};
-				5: dpdat0 = {Mvid[23:16], hsync[7:0]};
-				6: dpdat0 = {Mvid[7:0], Mvid[15:8]};
-				7: dpdat0 = {hdata[7:0], hdata[15:8]};
-				8: dpdat0 = {vdata[7:0], vdata[15:8]};
-				9: dpdat0 = {vsync[7:0], vsync[15:8]};
-				10: dpdat0 = {Mvid[15:8], Mvid[23:16]};
-				11: dpdat0 = {hact[15:8], Mvid[7:0]};
-				12: dpdat0 = {vact[15:8], hact[7:0]};
-				13: dpdat0 = {8'b0, vact[7:0]};
-				14: dpdat0 = {Mvid[23:16], 8'b0};
-				15: dpdat0 = {Mvid[7:0], Mvid[15:8]};		
-				16: dpdat0 = {Nvid[15:8], Nvid[23:16]};
-				17: dpdat0 = {misc[7:0], Nvid[7:0]};
-				18: dpdat0 = {8'b0, misc[15:8]};
+				1: dpdat0_ = {Mvid[15:8], Mvid[23:16]};
+				2: dpdat0_ = {htot[15:8], Mvid[7:0]};
+				3: dpdat0_ = {vtot[15:8], htot[7:0]};
+				4: dpdat0_ = {hsync[15:8], vtot[7:0]};
+				5: dpdat0_ = {Mvid[23:16], hsync[7:0]};
+				6: dpdat0_ = {Mvid[7:0], Mvid[15:8]};
+				7: dpdat0_ = {hdata[7:0], hdata[15:8]};
+				8: dpdat0_ = {vdata[7:0], vdata[15:8]};
+				9: dpdat0_ = {vsync[7:0], vsync[15:8]};
+				10: dpdat0_ = {Mvid[15:8], Mvid[23:16]};
+				11: dpdat0_ = {hact[15:8], Mvid[7:0]};
+				12: dpdat0_ = {vact[15:8], hact[7:0]};
+				13: dpdat0_ = {8'b0, vact[7:0]};
+				14: dpdat0_ = {Mvid[23:16], 8'b0};
+				15: dpdat0_ = {Mvid[7:0], Mvid[15:8]};		
+				16: dpdat0_ = {Nvid[15:8], Nvid[23:16]};
+				17: dpdat0_ = {misc[7:0], Nvid[7:0]};
+				18: dpdat0_ = {8'b0, misc[15:8]};
 				19: begin
-					dpdat0 = {8'b0, `symSE};
-					dpisk0 = 2'b01;
+					dpdat0_ = {8'b0, `symSE};
+					dpisk0_ = 2'b01;
 					ctr_ = 0;
 					state_ = IDLE;
 				end
@@ -321,18 +332,18 @@ module stuff(
 		end
 		VBID: begin
 			ctr_ = ctr + 2;
-			dpisk0 = 0;
-			dpisk1 = 0;
+			dpisk0_ = 0;
+			dpisk1_ = 0;
 			case(ctr % 3)
-			0: dpdat0 = {Mvid[7:0], 7'b0, yrem <= 1};
-			1: dpdat0 = {8'b0, Mvid[7:0]};
-			2: dpdat0 = {7'b0, yrem <= 1, 8'b0};
+			0: dpdat0_ = {Mvid[7:0], 7'b0, yrem <= 1};
+			1: dpdat0_ = {8'b0, Mvid[7:0]};
+			2: dpdat0_ = {7'b0, yrem <= 1, 8'b0};
 			endcase
 			if(!twolane && (ctr == 10 || ctr == 11) || twolane && (ctr == 4 || ctr == 5)) begin
 				ctr_ = 0;
 				state_ = EOL;
 			end
-			dpdat1 = dpdat0;
+			dpdat1_ = dpdat0_;
 		end
 		EOL: begin
 			state_ = yrem == 1 ? VBLANK : IDLE;

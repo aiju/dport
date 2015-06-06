@@ -3,6 +3,9 @@
 
 enum {
 	CTRL = 0x00,
+	MODE,
+	START,
+	END,
 	HVACT = 0x10,
 	HVTOT,
 	HVSYNC,
@@ -61,17 +64,37 @@ dump(ulong *r)
 	}
 }
 
+ulong
+getpa(void)
+{
+	int fd;
+	static char buf[512];
+	char *f[10];
+	
+	fd = open("#g/fb/ctl", OREAD);
+	if(fd < 0)
+		sysfatal("open: %r");
+	read(fd, buf, 512);
+	close(fd);
+	tokenize(buf, f, nelem(f));
+	return strtol(f[4], 0, 0);
+}
+
 void
 main()
 {
 	ulong *r;
 	uchar *rr;
+	ulong addr;
 	
 	r = segattach(0, "axi", nil, 1048576*4);
 	if(r == (ulong*)-1)
 		sysfatal("segattach: %r");
+	r[CTRL] = 0;
+	r[MODE] = 3;
+	sleep(1000);
 	rr = (uchar*)r + 1048576;
-	rr[LINK_BW_SET] = 0x06;
+	rr[LINK_BW_SET] = 0x0A;
 	rr[LANE_COUNT_SET] = 0x1;
 	rr[TRAINING_PATTERN_SET] = 0x21;
 	r[CTRL] = 2;
@@ -83,16 +106,38 @@ main()
 	do
 		sleep(10);
 	while((rr[LANE0_1_STATUS] & (LANE0_CR_DONE|LANE0_CHANNEL_EQ_DONE|LANE0_SYMBOL_LOCKED)) != 7);
-	r[HVACT] = 640 << 16 | 480;
+/*	r[HVACT] = 640 << 16 | 480;
 	r[HVTOT] = 800 << 16 | 525;
 	r[HVSYNC] = 0x80608002;
 	r[HVDATA] = 144 << 16 | 35;
 	r[MVID] = 42;
 	r[NVID] = 275;
 	r[SCLK] = 0x2719;
+//	r[MVID] = 25;
+//	r[NVID] = 270;
+//	r[SCLK] = 5958;
+	r[MISC] = 0x21;*/
+	
+	r[HVACT] = 1024 << 16 | 768;
+	r[HVTOT] = 1328 << 16 | 806;
+	r[HVSYNC] = 0x80008000 | 136 << 16 | 6;
+	r[HVDATA] = 280 << 16 | 35;
+	r[MVID] = 5;
+	r[NVID] = 18;
+	r[SCLK] = 18204;
+	
 	r[MISC] = 0x21;
-	rr[TRAINING_PATTERN_SET] = 0;
+	
+	addr = getpa();
+	r[START] = addr;
+	r[END] = addr + 1024*768*4;
 	r[CTRL] = 1<<31 | 1;
-	sleep(100);
-	dump(r);
+
+	rr[TRAINING_PATTERN_SET] = 0;
+
+
+	for(;;){
+		sleep(100);
+		print("%x\n", rr[0x202]);
+	}
 }
