@@ -6,6 +6,7 @@ enum {
 	STS,
 	START,
 	END,
+	CURS,
 	HVACT = 0x10,
 	HVTOT,
 	HVSYNC,
@@ -110,21 +111,20 @@ main()
 	r[HVDATA] = 360 << 16 | 41;
 	r[MVID0] = 2;
 	r[NVID0] = 3;
-	r[SCLK0] = 
+	r[SCLK0] = 43691;
 	r[MVID1] = 2;
 	r[NVID1] = 5;
 	r[SCLK1] = 26214;
-
 	
 	addr = getpa();
 	r[START] = addr;
 	r[END] = addr + 1280*1024*4;
 
 	r[CTRL] = 1<<31;
+	//goto manual;
 	for(;;){
 		sleep(100);
 		print("%ux %x\n", r[STS], rr[0x202]);
-	//	print("%ux\r", r[STS]);
 	}
 
 manual:

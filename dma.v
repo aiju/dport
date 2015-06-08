@@ -6,9 +6,10 @@ module dma(
 	
 	input wire dpclk,
 	input wire dmastart,
+	output wire clkdmastart,
 	
-	output wire [47:0] fifodi,
-	output wire fifowren,
+	output wire [47:0] dmado,
+	output wire dmavalid,
 	input wire fifoalfull,
 	output wire fiforeset,
 	
@@ -56,10 +57,11 @@ module dma(
 	assign arsize = 3;
 	assign arburst = 1;
 	assign arid = 0;
-	assign fifodi = {rdata[55:32], rdata[23:0]};
-	assign fifowren = rvalid;
+	assign dmado = {rdata[55:32], rdata[23:0]};
+	assign dmavalid = rvalid;
 	reg issue;
 
+	assign clkdmastart = start0 && !start00;
 	always @(posedge clk) begin
 		start00 <= start0;
 		if(arvalid && arready)
@@ -69,7 +71,7 @@ module dma(
 			if(rlast)
 				issue <= 1;
 		end
-		if(start0 && !start00 && !reset) begin
+		if(clkdmastart && !reset) begin
 			araddr <= addrstart;
 			issue <= 1;
 		end

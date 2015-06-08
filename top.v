@@ -77,16 +77,21 @@ module top(
 	wire [31:0] debugrdata;
 	wire debugreq, debugack;
 	
-	wire dpclk, fifowren, fifoempty, fifoalfull, fiforden, dphstart, dpvstart, reset, gtpready;
+	wire [5:0] curaddr;
+	wire [31:0] curwdata;
+	wire curreq;
+	wire [3:0] curwstrb;
+	
+	wire dpclk, dmavalid, fifowren, fifoempty, fifoalfull, fiforden, dphstart, dpvstart, reset, gtpready;
 	wire [1:0] dpisk0, dpisk1, scrisk0, scrisk1, txisk0, txisk1, phymode;
 	wire [2:0] prbssel;
 	wire [3:0] fclk, fresetn;
 	wire [15:0] dpdat0, dpdat1, scrdat0, scrdat1, txdat0, txdat1;
-	wire [47:0] fifodi, fifodo;
+	wire [47:0] dmado, fifodi, fifodo;
 	wire [`ATTRMAX:0] attr;
 	
-	wire [31:0] addrstart, addrend;
-	wire dmastart;
+	wire [31:0] addrstart, addrend, curreg;
+	wire dmastart, clkdmastart;
 	wire fiforeset;
 	
 	wire speed, twolane;
@@ -110,7 +115,8 @@ module top(
 	regs regs0(clk, armaddr, armrdata, armwdata, armwr, armreq, armack, armwstrb, armerr,
 		regauxaddr, regauxwdata, regauxreq, regauxwr, regauxack, regauxerr, regauxrdata,
 		debugaddr, debugreq, debugack, debugrdata,
-		attr, addrstart, addrend, phyctl, physts
+		curaddr, curwdata, curreq, curwstrb,
+		attr, addrstart, addrend, curreg, phyctl, physts
 	);
 	train train0(clk,
 		regauxaddr, regauxwdata, regauxreq, regauxwr, regauxack, regauxerr, regauxrdata,
@@ -123,10 +129,14 @@ module top(
 	assign debug = armack | (|armrdata);
 	assign debug2 = 0;
 	
-	dma dma0(clk, reset, dpclk, dmastart,
-		fifodi, fifowren, fifoalfull, fiforeset, addrstart, addrend,
+	dma dma0(clk, reset, dpclk, dmastart, clkdmastart,
+		dmado, dmavalid, fifoalfull, fiforeset, addrstart, addrend,
 		hp0_araddr, hp0_arid, hp0_arlen, hp0_arsize, hp0_arburst, hp0_arready, hp0_arvalid,
 		hp0_rdata, hp0_rid, hp0_rlast, hp0_rready, hp0_rresp, hp0_rvalid
+	);
+	cursor cursor0(clk, clkdmastart, dmado, dmavalid, fifodi, fifowren,
+		curreg, curaddr, curwdata, curreq, curwstrb,
+		attr
 	);
 	FIFO36E1 #(
 		.DATA_WIDTH("72"),

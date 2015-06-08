@@ -25,10 +25,16 @@ module regs(
 	input wire debugack,
 	input wire [31:0] debugrdata,
 	
+	output reg [5:0] curaddr,
+	output reg [31:0] curwdata,
+	output reg curreq,
+	output reg [3:0] curwstrb,
+	
 	output reg [`ATTRMAX:0] attr,
 	
 	output reg [31:0] addrstart,
 	output reg [31:0] addrend,
+	output reg [31:0] curreg,
 	
 	output reg [31:0] phyctl,
 	input wire [31:0] physts
@@ -44,10 +50,12 @@ module regs(
 		attr = 0;
 		auxreq = 0;
 		debugreq = 0;
+		curreg = 'h80008000;
 	end
 	always @(posedge clk) begin
 		armack <= 0;
 		armreq0 <= armreq;
+		curreq <= 0;
 		case(state)
 		IDLE:
 			if(armreq && !armreq0)
@@ -56,10 +64,11 @@ module regs(
 					if(armwr) begin
 						armack <= 1;
 						armerr <= 0;
-						case(armaddr[19:0] & -4)
+						casez(armaddr[19:0] & -4)
 						'h00: phyctl <= armwdata;
 						'h08: addrstart <= armwdata;
 						'h0c: addrend <= armwdata;
+						'h10: curreg <= armwdata;
 						'h40: attr[31:0] <= armwdata;
 						'h44: attr[63:32] <= armwdata;
 						'h48: attr[95:64] <= armwdata;
@@ -70,7 +79,13 @@ module regs(
 						'h5c: attr[208:192] <= armwdata[16:0];
 						'h60: attr[232:209] <= armwdata[23:0];
 						'h64: attr[256:233] <= armwdata[23:0];
-						'h68: attr[273:257] <= armwdata[16:0];						
+						'h68: attr[273:257] <= armwdata[16:0];
+						'b10zz_zzzz: begin
+							curaddr <= armaddr[5:0];
+							curreq <= 1;
+							curwstrb <= armwstrb;
+							curwdata <= armwdata;
+						end	
 						default: armack <= 0;
 						endcase
 					end else begin
