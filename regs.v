@@ -26,16 +26,12 @@ module regs(
 	input wire [31:0] debugrdata,
 	
 	output reg [`ATTRMAX:0] attr,
-	output reg reset,
-	output reg [2:0] phymode,
-	output reg [2:0] prbssel,
 	
 	output reg [31:0] addrstart,
 	output reg [31:0] addrend,
 	
-	output reg speed,
-	output reg [1:0] preemph,
-	output reg [1:0] swing
+	output reg [31:0] phyctl,
+	input wire [31:0] physts
 );
 
 	reg armreq0;
@@ -45,10 +41,7 @@ module regs(
 	localparam DEBUG = 2;
 
 	initial begin
-		reset = 1;
 		attr = 0;
-		phymode = 0;
-		prbssel = 0;
 		auxreq = 0;
 		debugreq = 0;
 	end
@@ -64,17 +57,7 @@ module regs(
 						armack <= 1;
 						armerr <= 0;
 						case(armaddr[19:0] & -4)
-						'h00: begin
-							reset <= !armwdata[31];
-							prbssel <= armwdata[5:3];
-							phymode <= armwdata[2:0];
-						end
-						'h04: begin
-							speed <= armwdata[0];
-							attr[209] <= armwdata[1];
-							preemph <= armwdata[5:4];
-							swing <= armwdata[7:6];
-						end
+						'h00: phyctl <= armwdata;
 						'h08: addrstart <= armwdata;
 						'h0c: addrend <= armwdata;
 						'h40: attr[31:0] <= armwdata;
@@ -85,6 +68,19 @@ module regs(
 						'h54: attr[167:144] <= armwdata[23:0];
 						'h58: attr[191:168] <= armwdata[23:0];
 						'h5c: attr[208:192] <= armwdata[16:0];
+						'h60: attr[232:209] <= armwdata[23:0];
+						'h64: attr[256:233] <= armwdata[23:0];
+						'h68: attr[273:257] <= armwdata[16:0];						
+						default: armack <= 0;
+						endcase
+					end else begin
+						armack <= 1;
+						armerr <= 0;
+						case(armaddr[19:0] & -4)
+						'h00: armrdata <= phyctl;
+						'h04: armrdata <= physts;
+						'h08: armrdata <= addrstart;
+						'h0c: armrdata <= addrend;
 						default: armack <= 0;
 						endcase
 					end

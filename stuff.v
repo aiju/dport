@@ -17,6 +17,8 @@ module stuff(
 	output reg [1:0] dpisk1,
 	
 	input wire [`ATTRMAX:0] attr,
+	input wire twolane,
+	input wire speed,
 	input wire reset
 );
 
@@ -26,12 +28,13 @@ module stuff(
 	reg [1:0] dpisk0_, dpisk1_;
 	
 	reg [3:0] state, state_;
-	localparam IDLE = 0;
-	localparam ACTIVE = 1;
-	localparam STUFF = 2;
-	localparam VBLANK = 3;
-	localparam VBID = 4;
-	localparam EOL = 5;
+	localparam RESET = 0;
+	localparam IDLE = 1;
+	localparam ACTIVE = 2;
+	localparam STUFF = 3;
+	localparam VBLANK = 4;
+	localparam VBID = 5;
+	localparam EOL = 6;
 	
 	reg hstart, vstart, hstart_, vstart_, pxcons;
 
@@ -44,10 +47,9 @@ module stuff(
 	wire [15:0] vdata = attr[111:96];
 	wire [15:0] hdata = attr[127:112];
 	wire [15:0] misc = attr[143:128];
-	wire [23:0] Mvid = attr[167:144];
-	wire [23:0] Nvid = attr[191:168];
-	wire [15:0] sclkinc = twolane ? {1'b0, attr[208:193]} : attr[207:192];
-	wire twolane = attr[209];
+	wire [23:0] Mvid = speed ? attr[232:209] : attr[167:144];
+	wire [23:0] Nvid = speed ? attr[256:233] : attr[191:168];
+	wire [15:0] sclkinc = (speed ? attr[273:257] : attr[208:192]) >> twolane;
 	
 	reg [23:0] px[0:3];
 	reg [2:0] pxfill, pxfill_;
@@ -61,10 +63,11 @@ module stuff(
 	wire [18:0] tufinc = ({3'd0, sclkinc} << 1) + {3'd0, sclkinc};
 	wire [19:0] tufincround = tufinc + 'h800;
 	reg tufreset, tufstep;
+	reg [11:0] resetctr;
 	
 	always @(posedge dpclk) begin
 		if(reset) begin
-			state <= IDLE;
+			state <= RESET;
 			hstart <= 0;
 			vstart <= 0;
 			pxrem <= 0;
@@ -95,6 +98,7 @@ module stuff(
 			tufctr <= tufctr - {2'd0, tufill, 11'd0} + tufinc;
 			tuctr <= tufill;
 		end
+		resetctr <= resetctr + 1;
 		
 		if(pxcons)
 			if(twolane) begin
@@ -141,6 +145,16 @@ module stuff(
 		tufstep = 0;
 		
 		case(state)
+		RESET: begin
+			if(!reset)
+				state_ = IDLE;
+			if(resetctr == 0) begin
+				dpdat0_ = {8'd8, `symBS};
+				dpdat1_ = {8'd8, `symBS};
+				dpisk0_ = 2'b01;
+				dpisk1_ = 2'b01;
+			end
+		end
 		IDLE: begin
 			if(vstart_) begin
 				if(pxfill >= 3) begin

@@ -3,6 +3,7 @@
 module pxclk(
 	input wire clk,
 	input wire [`ATTRMAX:0] attr,
+	input wire speed,
 	input wire reset,
 	output reg dphstart,
 	output reg dpvstart,
@@ -18,9 +19,9 @@ module pxclk(
 	wire [15:0] vdata = attr[111:96];
 	wire [15:0] hdata = attr[127:112];
 	wire [15:0] misc = attr[143:128];
-	wire [23:0] Mvid = attr[167:144];
-	wire [23:0] Nvid = attr[191:168];
-	wire [16:0] sclkinc = attr[208:192];
+	wire [23:0] Mvid = speed ? attr[232:209] : attr[167:144];
+	wire [23:0] Nvid = speed ? attr[256:233] : attr[191:168];
+	wire [16:0] sclkinc = speed ? attr[273:257] : attr[208:192];
 
 	reg [30:0] pxctr;
 	reg [15:0] yctr;

@@ -3,7 +3,7 @@
 
 enum {
 	CTRL = 0x00,
-	MODE,
+	STS,
 	START,
 	END,
 	HVACT = 0x10,
@@ -11,9 +11,12 @@ enum {
 	HVSYNC,
 	HVDATA,
 	MISC,
-	MVID,
-	NVID,
-	SCLK,
+	MVID0,
+	NVID0,
+	SCLK0,
+	MVID1,
+	NVID1,
+	SCLK1,
 	
 	LINK_BW_SET = 0x100,
 	LANE_COUNT_SET = 0x101,
@@ -90,19 +93,47 @@ main()
 	
 	twolane = 1;
 	fast = 1;
-	emph = 1;
-	swing = 1;
+	emph = 0;
+	swing = 0;
 	
 	r = segattach(0, "axi", nil, 1048576*4);
 	if(r == (ulong*)-1)
 		sysfatal("segattach: %r");
-	r[CTRL] = 0;
-	r[MODE] = swing << 6 | emph << 4 | twolane << 1 | fast;
 	rr = (uchar*)r + 1048576;
+
+	r[CTRL] = 0;
+	r[MISC] = 0x21;
+
+	r[HVACT] = 1280 << 16 | 1024;
+	r[HVTOT] = 1688 << 16 | 1066;
+	r[HVSYNC] = 112 << 16 | 3;
+	r[HVDATA] = 360 << 16 | 41;
+	r[MVID0] = 2;
+	r[NVID0] = 3;
+	r[SCLK0] = 
+	r[MVID1] = 2;
+	r[NVID1] = 5;
+	r[SCLK1] = 26214;
+
+	
+	addr = getpa();
+	r[START] = addr;
+	r[END] = addr + 1280*1024*4;
+
+	r[CTRL] = 1<<31;
+	for(;;){
+		sleep(100);
+		print("%ux %x\n", r[STS], rr[0x202]);
+	//	print("%ux\r", r[STS]);
+	}
+
+manual:
+	r[CTRL] = 1 << 13 | swing << 6 | emph << 4 | twolane << 1 | fast;
+	rr[TRAINING_LANE0_SET] = emph << 4 | swing;
 	rr[LINK_BW_SET] = fast ? 0x0A : 0x06;
 	rr[LANE_COUNT_SET] = twolane + 1;
 	rr[TRAINING_PATTERN_SET] = 0x21;
-	r[CTRL] = 2;
+	r[CTRL] = r[CTRL] & ~0xf00 | 0x200;
 	do{
 		sleep(10);
 		s = rr[LANE0_1_STATUS];
@@ -110,20 +141,22 @@ main()
 			s &= s >> 4;
 	}while((s & LANE0_CR_DONE) == 0);
 	rr[TRAINING_PATTERN_SET] = 0x22;
-	r[CTRL] = 3;
+	r[CTRL] = r[CTRL] & ~0xf00 | 0x300;
 	do{
 		sleep(10);
 		s = rr[LANE0_1_STATUS];
 		if(twolane)
 			s &= s >> 4;
-	}while((rr[LANE0_1_STATUS] & (LANE0_CR_DONE|LANE0_CHANNEL_EQ_DONE|LANE0_SYMBOL_LOCKED)) != 7);
-/*	r[HVACT] = 640 << 16 | 480;
-	r[HVTOT] = 800 << 16 | 525;
-	r[HVSYNC] = 0x80608002;
-	r[HVDATA] = 144 << 16 | 35;
-	r[MVID] = fast ? 25 : 42;
-	r[NVID] = fast ? 270 : 275;
-	r[SCLK] = fast ? 5958 : 0x2719;*/
+	}while((s & (LANE0_CR_DONE|LANE0_CHANNEL_EQ_DONE|LANE0_SYMBOL_LOCKED)) != 7);
+	
+	r[CTRL] = r[CTRL] & ~0xf00 & ~(1<<13) | 0x100;
+//	sleep(1000);
+	rr[TRAINING_PATTERN_SET] = 0;
+
+	for(;;){
+		sleep(100);
+		print("%x %x %x\n", r[STS], rr[0x202], rr[0x204]);
+	}
 	
 /*	r[HVACT] = 1024 << 16 | 768;
 	r[HVTOT] = 1328 << 16 | 806;
@@ -133,29 +166,14 @@ main()
 	r[NVID] = fast ? 18 : 54;
 	r[SCLK] = fast ? 18204 : 30341; */
 	
-	r[HVACT] = 1280 << 16 | 1024;
-	r[HVTOT] = 1688 << 16 | 1066;
-	r[HVSYNC] = 112 << 16 | 3;
-	r[HVDATA] = 360 << 16 | 41;
-	r[MVID] = 2;
-	r[NVID] = 5;
-	r[SCLK] = 26214;
-	
-	r[MISC] = 0x21;
-	
-	addr = getpa();
-	r[START] = addr;
-	r[END] = addr + 1280*1024*4;
-	
-	rr[TRAINING_PATTERN_SET] = 0;
-
-	sleep(10);
-	
-	r[CTRL] = 1<<31 | 1;
-
-
-{//	for(;;){
-		sleep(1000);
-		print("%x\n", rr[0x202]);
-	}
+/*	r[HVACT] = 640 << 16 | 480;
+	r[HVTOT] = 800 << 16 | 525;
+	r[HVSYNC] = 0x80608002;
+	r[HVDATA] = 144 << 16 | 35;
+	r[MVID0] = 42;
+	r[NVID0] = 275;
+	r[SCLK0] = 0x2719;
+	r[MVID1] = 25;
+	r[NVID1] = 270;
+	r[SCLK1] = 5958;*/
 }

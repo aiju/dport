@@ -18,7 +18,8 @@ module aux(
 	output wire debug,
 	output wire debug2
 );
-	
+
+	localparam TIMEOUT = 40000;
 	localparam CLKDIV = 100;
 	reg [6:0] auxdiv;
 	wire auxclk = auxdiv < CLKDIV/2;
@@ -207,6 +208,7 @@ module aux(
 	localparam RXWAIT = 2;
 	localparam RXDATA = 3;
 	localparam RXPARK = 4;
+	reg [15:0] rxtimer;
 	
 	always @(posedge clk) begin
 		auxack <= 0;
@@ -222,14 +224,23 @@ module aux(
 		RXDELAY:
 			if(rxdok) begin
 				rxbctr <= rxbctr + 1;
-				if(rxbctr == 7)
+				if(rxbctr == 7) begin
+					rxtimer <= TIMEOUT;
 					rxstate <= RXWAIT;
+				end
 			end
 		RXWAIT:
-			if(rxdok && sync) begin
-				rxstate <= RXDATA;
-				inv <= 0;
-				rxbctr <= 0;
+			if(rxtimer == 0) begin
+				rxstate <= IDLE;
+				auxack <= 1;
+				auxerr <= 1;
+			end else begin
+				rxtimer <= rxtimer - 1;
+				if(rxdok && sync) begin
+					rxstate <= RXDATA;
+					inv <= 0;
+					rxbctr <= 0;
+				end
 			end
 		RXDATA:
 			if(rxdok) begin
@@ -243,6 +254,7 @@ module aux(
 				if(sync) begin
 					rxstate <= RXPARK;
 					auxack <= 1;
+					auxerr <= 0;
 				end
 			end
 		RXPARK:

@@ -67,15 +67,19 @@ module top(
 	wire [19:0] auxaddr;
 	wire [7:0] auxrdata, auxwdata;
 	wire auxreq, auxack, auxwr, auxerr;
+	wire [19:0] regauxaddr;
+	wire [7:0] regauxrdata, regauxwdata;
+	wire regauxreq, regauxack, regauxwr, regauxerr;
 	wire auxi, auxo, auxd;
+	wire [31:0] phyctl, physts;
 	
 	wire [15:0] debugaddr;
 	wire [31:0] debugrdata;
 	wire debugreq, debugack;
 	
 	wire dpclk, fifowren, fifoempty, fifoalfull, fiforden, dphstart, dpvstart, reset, gtpready;
-	wire [1:0] dpisk0, dpisk1, scrisk0, scrisk1, txisk0, txisk1;
-	wire [2:0] phymode, prbssel;
+	wire [1:0] dpisk0, dpisk1, scrisk0, scrisk1, txisk0, txisk1, phymode;
+	wire [2:0] prbssel;
 	wire [3:0] fclk, fresetn;
 	wire [15:0] dpdat0, dpdat1, scrdat0, scrdat1, txdat0, txdat1;
 	wire [47:0] fifodi, fifodo;
@@ -85,7 +89,7 @@ module top(
 	wire dmastart;
 	wire fiforeset;
 	
-	wire speed;
+	wire speed, twolane;
 	wire [1:0] preemph, swing;
 	
 	wire clk = fclk[0];
@@ -104,11 +108,18 @@ module top(
 	);
 
 	regs regs0(clk, armaddr, armrdata, armwdata, armwr, armreq, armack, armwstrb, armerr,
-		auxaddr, auxwdata, auxreq, auxwr, auxack, auxerr, auxrdata,
+		regauxaddr, regauxwdata, regauxreq, regauxwr, regauxack, regauxerr, regauxrdata,
 		debugaddr, debugreq, debugack, debugrdata,
-		attr, reset, phymode, prbssel, addrstart, addrend, speed, preemph, swing);
+		attr, addrstart, addrend, phyctl, physts
+	);
+	train train0(clk,
+		regauxaddr, regauxwdata, regauxreq, regauxwr, regauxack, regauxerr, regauxrdata,
+		phyctl, physts,
+		auxaddr, auxwdata, auxreq, auxwr, auxack, auxrdata, auxerr,
+		reset, speed, twolane, preemph, swing, phymode, prbssel
+	);
 	aux aux0(clk, auxaddr, auxwdata, auxreq, auxwr, auxack, auxerr, auxrdata, auxi, auxo, auxd);
-	pxclk pxclk0(dpclk, attr, reset, dphstart, dpvstart, dmastart);
+	pxclk pxclk0(dpclk, attr, speed, reset, dphstart, dpvstart, dmastart);
 	assign debug = armack | (|armrdata);
 	assign debug2 = 0;
 	
@@ -135,7 +146,7 @@ module top(
 		.EMPTY(fifoempty),
 		.RST(fiforeset)
 	);
-	stuff stuff0(dpclk, fifoempty, fiforeset, fifodo, fiforden, dphstart, dpvstart, dmastart, dpdat0, dpdat1, dpisk0, dpisk1, attr, reset);
+	stuff stuff0(dpclk, fifoempty, fiforeset, fifodo, fiforden, dphstart, dpvstart, dmastart, dpdat0, dpdat1, dpisk0, dpisk1, attr, twolane, speed, reset);
 	scrambler scr0(dpclk, dpdat0, dpisk0, scrdat0, scrisk0);
 	scrambler scr1(dpclk, dpdat1, dpisk1, scrdat1, scrisk1);
 	phy phy0(dpclk, phymode, scrdat0, scrdat1, scrisk0, scrisk1, txdat0, txdat1, txisk0, txisk1);

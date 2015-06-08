@@ -2,7 +2,7 @@
 
 module phy(
 	input wire dpclk,
-	input wire [2:0] phymode,
+	input wire [1:0] phymode,
 	input wire [15:0] scrdat0,
 	input wire [15:0] scrdat1,
 	input wire [1:0] scrisk0,
@@ -14,17 +14,15 @@ module phy(
 );
 
 	reg [2:0] ctr;
-	reg [15:0] scrdat1_0, scrdat1_1, txdat0_, txdat1_;
-	reg [1:0] scrisk1_0, scrisk1_1, txisk0_, txisk1_;
+	reg [15:0] txdat1_0, txdat0_, txdat1_;
+	reg [1:0] txisk1_0, txisk0_, txisk1_;
 	always @(posedge dpclk) begin
 		txdat0 <= txdat0_;
 		txisk0 <= txisk0_;
-		txdat1 <= txdat1_;
-		txisk1 <= txisk1_;
-		scrdat1_0 <= scrdat1;
-		scrdat1_1 <= scrdat1_0;
-		scrisk1_0 <= scrisk1;
-		scrisk1_1 <= scrisk1_0;
+		txdat1 <= txdat1_0;
+		txisk1 <= txisk1_0;
+		txdat1_0 <= txdat1_;
+		txisk1_0 <= txisk1_;
 		if(ctr == 4)
 			ctr <= 0;
 		else
@@ -39,9 +37,9 @@ module phy(
 		case(phymode)
 		1: begin
 			txdat0_ = scrdat0;
-			txdat1_ = scrdat1_1;
+			txdat1_ = scrdat1;
 			txisk0_ = scrisk0;
-			txisk1_ = scrisk1_1;
+			txisk1_ = scrisk1;
 		end
 		2: begin
 			txdat0_ = 16'h4A4A;
