@@ -2,12 +2,15 @@
 
 module pxclk(
 	input wire clk,
+	input wire dpclk,
 	input wire [`ATTRMAX:0] attr,
 	input wire speed,
 	input wire reset,
 	output reg dphstart,
 	output reg dpvstart,
-	output reg dmastart
+	output reg dmastart,
+	output wire clkdmastart,
+	output wire fiforeset
 );
 
 	wire [15:0] vact = attr[15:0];
@@ -25,7 +28,7 @@ module pxclk(
 
 	reg [30:0] pxctr;
 	reg [15:0] yctr;
-	always @(posedge clk) begin
+	always @(posedge dpclk) begin
 		dpvstart <= 0;
 		dmastart <= 0;
 		if(pxctr[30:15] >= htot) begin
@@ -50,6 +53,27 @@ module pxclk(
 			dmastart <= 0;
 		end
 	end
-
+	
+	reg start;
+	initial start = 0;
+	wire start0, start1;
+	reg start00;
+	sync syncstart(clk, start, start0);
+	sync syncstart0(dpclk, start0, start1);
+	reg [2:0] ctr;
+	assign fiforeset = ctr != 7;
+	always @(posedge dpclk) begin
+		if(dmastart)
+			ctr <= 0;
+		if(ctr != 7)
+			ctr <= ctr + 1;
+		if(ctr == 6)
+			start <= 1;
+		if(start1)
+			start <= 0;
+	end
+	assign clkdmastart = start0 && !start00;
+	always @(posedge clk)
+		start00 <= start0;
 
 endmodule

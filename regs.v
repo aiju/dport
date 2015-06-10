@@ -39,8 +39,7 @@ module regs(
 	output reg [31:0] curreg,
 	
 	output reg [31:0] phyctl,
-	input wire [31:0] physts,
-	input wire debugctr
+	input wire [31:0] physts
 );
 
 	reg armreq0;

@@ -125,12 +125,12 @@ module top(
 		reset, speed, twolane, preemph, swing, phymode, prbssel
 	);
 	aux aux0(clk, auxaddr, auxwdata, auxreq, auxwr, auxack, auxerr, auxrdata, auxi, auxo, auxd);
-	pxclk pxclk0(dpclk, attr, speed, reset, dphstart, dpvstart, dmastart);
+	pxclk pxclk0(clk, dpclk, attr, speed, reset, dphstart, dpvstart, dmastart, clkdmastart, fiforeset);
 	assign debug = armack | (|armrdata);
 	assign debug2 = 0;
 	
-	dma dma0(clk, reset, dpclk, dmastart, clkdmastart,
-		dmado, dmavalid, fifoalfull, fiforeset, addrstart, addrend,
+	dma dma0(clk, reset, clkdmastart,
+		dmado, dmavalid, fifoalfull, addrstart, addrend,
 		hp0_araddr, hp0_arid, hp0_arlen, hp0_arsize, hp0_arburst, hp0_arready, hp0_arvalid,
 		hp0_rdata, hp0_rid, hp0_rlast, hp0_rready, hp0_rresp, hp0_rvalid
 	);
