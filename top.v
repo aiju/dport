@@ -74,8 +74,8 @@ module top(
 	wire [31:0] phyctl, physts;
 	
 	wire [15:0] debugaddr;
-	wire [31:0] debugrdata;
-	wire debugreq, debugack;
+	wire [31:0] debugrdata, debugwdata;
+	wire debugreq, debugack, debugwr;
 	
 	wire [5:0] curaddr;
 	wire [31:0] curwdata;
@@ -114,7 +114,7 @@ module top(
 
 	regs regs0(clk, armaddr, armrdata, armwdata, armwr, armreq, armack, armwstrb, armerr,
 		regauxaddr, regauxwdata, regauxreq, regauxwr, regauxack, regauxerr, regauxrdata,
-		debugaddr, debugreq, debugack, debugrdata,
+		debugaddr, debugreq, debugack, debugrdata, debugwdata, debugwr,
 		curaddr, curwdata, curreq, curwstrb,
 		attr, addrstart, addrend, curreg, phyctl, physts
 	);
@@ -161,7 +161,7 @@ module top(
 	scrambler scr1(dpclk, dpdat1, dpisk1, scrdat1, scrisk1);
 	phy phy0(dpclk, phymode, scrdat0, scrdat1, scrisk0, scrisk1, txdat0, txdat1, txisk0, txisk1);
 	gtp gtp0(clk, refclk, dpclk, gtpready, prbssel, txdat0, txdat1, txisk0, txisk1, tx, speed, preemph, swing);
-	debugm debugm0(clk, dpclk, dpdat0[15:8] == `symBE && dpisk0[1], 1, dpdat0, dpdat1, dpisk0, dpisk1, debugaddr, debugreq, debugack, debugrdata);
+	debugm debugm0(clk, dpclk, hp0_arvalid && hp0_arready, hp0_rvalid, debugaddr, debugreq, debugack, debugrdata, debugwr, debugwdata);
 
 	wire auxi0;
 	sync auxsync(clk, !auxi0, auxi);
@@ -224,6 +224,7 @@ module top(
 		.SAXIHP0RDATA(hp0_rdata),
 		.SAXIHP0RRESP(hp0_rresp),
 		.SAXIHP0RLAST(hp0_rlast),
+		.SAXIHP0ARQOS(15),
 
 		.FCLKCLK(fclk),
 		.FCLKRESETN(fresetn)

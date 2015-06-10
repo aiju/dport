@@ -85,6 +85,24 @@ getpa(void)
 }
 
 void
+setfb(void)
+{
+	void *v;
+	int fd;
+	
+	v = segattach(0, "fb", nil, 1048576*10);
+	if(v == (ulong*)-1)
+		sysfatal("segattach: %r");
+	fd = open("/dev/fbctl", OWRITE);
+	if(fd < 0)
+		sysfatal("open: %r");
+	if(fprint(fd, "size 1280x1024x32 x8b8g8r8") < 0)
+		sysfatal("fprint: %r");
+	if(fprint(fd, "addr %#ux", v) < 0)
+		sysfatal("fprint: %r");
+}
+
+void
 main()
 {
 	ulong *r;
@@ -119,6 +137,7 @@ main()
 	addr = getpa();
 	r[START] = addr;
 	r[END] = addr + 1280*1024*4;
+//	setfb();
 
 	r[CTRL] = 1<<31;
 	//goto manual;
@@ -154,7 +173,7 @@ manual:
 	rr[TRAINING_PATTERN_SET] = 0;
 
 	for(;;){
-		sleep(100);
+		sleep(1000);
 		print("%x %x %x\n", r[STS], rr[0x202], rr[0x204]);
 	}
 	

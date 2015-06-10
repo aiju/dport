@@ -24,6 +24,8 @@ module regs(
 	output reg debugreq,
 	input wire debugack,
 	input wire [31:0] debugrdata,
+	output reg [31:0] debugwdata,
+	output reg debugwr,
 	
 	output reg [5:0] curaddr,
 	output reg [31:0] curwdata,
@@ -37,7 +39,8 @@ module regs(
 	output reg [31:0] curreg,
 	
 	output reg [31:0] phyctl,
-	input wire [31:0] physts
+	input wire [31:0] physts,
+	input wire debugctr
 );
 
 	reg armreq0;
@@ -106,12 +109,13 @@ module regs(
 					auxwr <= armwr;
 					auxreq <= 1;
 				end
-				2:
-					if(!armwr) begin
-						state <= DEBUG;
-						debugaddr <= armaddr[15:0];
-						debugreq <= 1;
-					end
+				2: begin
+					state <= DEBUG;
+					debugaddr <= armaddr[15:0];
+					debugreq <= 1;
+					debugwdata <= armwdata;
+					debugwr <= armwr;
+				end
 				endcase
 		AUX:
 			if(auxack) begin

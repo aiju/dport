@@ -4,52 +4,75 @@ module debugm(
 	input wire clk,
 	input wire dpclk,
 	
-	input wire trigger,
-	input wire valid,
-	
-	input wire [15:0] txdat0,
-	input wire [15:0] txdat1,
-	input wire [1:0] txisk0,
-	input wire [1:0] txisk1,
+	input wire start,
+	input wire stop,
 	
 	input wire [15:0] debugaddr,
 	input wire debugreq,
 	output reg debugack,
-	output reg [31:0] debugrdata
+	output reg [31:0] debugrdata,
+	input wire debugwr,
+	input wire [31:0] debugwdata
 );
 
 	parameter NSZ = 12;
 	localparam SIZE = 1<<NSZ;
 
+	reg mode;
 	reg [31:0] mem[0:SIZE-1];
-	reg [3:0] isk[0:SIZE-1];
-
-	reg [NSZ:0] ctr;
+	reg [NSZ:0] addr;
+	reg we;
+	reg [31:0] rdata;
+	reg [31:0] wdata;
 	
-	always @(posedge dpclk) begin
-		if(trigger && ctr[NSZ])
-			ctr <= 0;
-		if(!ctr[NSZ] && valid) begin
-			mem[ctr] <= {txdat1, txdat0};
-			isk[ctr] <= {txisk1, txisk0};
-			ctr <= ctr + 1;
+	always @(*) begin
+		if(mode) begin
+			if(stop && running) begin
+				addr = ctr;
+				wdata = rdata + 1;
+				we = 1;
+			end else begin
+				addr = ctr + 1;
+				we = 0;
+				wdata = 32'bx;
+			end
+		end else begin
+			addr = debugaddr[NSZ+1:2];
+			wdata = debugwdata;
+			we = debugwr && debugreq0 && !debugreq00;
 		end
 	end
 	
+	always @(posedge clk)
+		if(we)
+			mem[addr] <= wdata;
+		else
+			rdata <= mem[addr];
+
+	reg [NSZ:0] ctr;
+	reg running;
+	
+	always @(posedge clk) begin
+		if(start && mode) begin
+			ctr <= 0;
+			running <= 1;
+		end else
+			ctr <= ctr + 1;
+		if(stop && running)
+			running <= 0;
+	end
+	
 	reg debugreq0, debugreq00;
-	reg [31:0] datw;
-	reg [3:0] iskw;
 	always @(posedge clk) begin
 		debugreq0 <= debugreq;
 		debugreq00 <= debugreq0;
 		debugack <= 0;
-		datw <= mem[debugaddr[NSZ+1:2]];
-		iskw <= isk[debugaddr[NSZ-1:0]];
 		if(debugreq0 && !debugreq00) begin
-			if(debugaddr[15])
-				debugrdata <= {4{{4'b0, iskw}}};
-			else
-				debugrdata <= datw;
+			if(debugwr) begin
+				if(debugaddr[15])
+					mode <= debugwdata[0];
+			end else
+				debugrdata <= rdata;
 			debugack <= 1;
 		end
 	end
