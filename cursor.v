@@ -37,9 +37,9 @@ module cursor(
 	reg [31:0] curreg0;
 	wire [15:0] x = picx - curreg0[31:16];
 	wire [15:0] y = picy - curreg0[15:0];
+	wire [3:0] x0 = ~x[3:0];
+	wire [3:0] x1 = x0 - 1;
 	reg [15:0] clr0, set0;
-	wire [1:0] clrp = clr0[(x[3:0] | 1) ^ 15 +: 2];
-	wire [1:0] setp = set0[(x[3:0] | 1) ^ 15 +: 2];
 	
 	always @(posedge clk) begin
 		if(clkdmastart) begin
@@ -54,15 +54,15 @@ module cursor(
 			fifodi <= dmado;
 			if(y < 16) begin
 				if(x < 16) begin
-					if(clrp[1])
+					if(clr0[x0])
 						fifodi[23:0] <= -1;
-					if(setp[1])
+					if(set0[x0])
 						fifodi[23:0] <= 0;
 				end
-				if(x+1 < 16) begin
-					if(clrp[0])
+				if((x+1 & 'hffff) < 16) begin
+					if(clr0[x1])
 						fifodi[47:24] <= -1;
-					if(setp[0])
+					if(set0[x1])
 						fifodi[47:24] <= 0;
 				end
 			end
