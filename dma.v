@@ -6,7 +6,7 @@ module dma(
 
 	input wire clkdmastart,
 	
-	output wire [47:0] dmado,
+	output reg [47:0] dmado,
 	output reg dmavalid,
 	input wire fifoalfull,
 	
@@ -25,7 +25,9 @@ module dma(
 	input wire rlast,
 	output wire rready,
 	input wire [1:0] rresp,
-	input wire rvalid
+	input wire rvalid,
+	
+	input wire mode16
 );
 
 	parameter burst = 16;
@@ -46,6 +48,7 @@ module dma(
 	reg [31:0] outaddr, outaddr_;
 	reg lastout;
 	reg rdact, rdact_;
+	reg half;
 	integer i;
 	
 	always @(posedge clk) begin
@@ -53,10 +56,25 @@ module dma(
 		cur <= cur_;
 		rdact <= rdact_;
 		outaddr <= outaddr_;
+		if(dmavalid)
+			half <= !half;
+		if(clkdmastart)
+			half <= 0;
 	end
 	
 	wire [63:0] bufpos = mem[{cur, pos}];
-	assign dmado = {bufpos[55:32], bufpos[23:0]};
+	wire [31:0] bufhalf = half ? bufpos[63:32] : bufpos[31:0];
+	always @(*)
+		if(mode16) begin
+			dmado[23:16] = {bufhalf[4:0], {3{bufhalf[0]}}};
+			dmado[15:8] = {bufhalf[10:5], {2{bufhalf[5]}}};
+			dmado[7:0] = {bufhalf[15:11], {3{bufhalf[11]}}};
+			dmado[47:40] = {bufhalf[20:16], {3{bufhalf[16]}}};
+			dmado[39:32] = {bufhalf[26:21], {2{bufhalf[21]}}};
+			dmado[31:24] = {bufhalf[31:27], {3{bufhalf[27]}}};
+		end else
+			dmado = {bufpos[55:32], bufpos[23:0]};			
+			
 	always @(*) begin
 		pos_ = pos;
 		cur_ = cur;
@@ -65,11 +83,13 @@ module dma(
 		lastout = 0;
 		dmavalid = 0;
 		if(rdact && !fifoalfull && pos < wrpos[cur]) begin
-			pos_ = pos + 1;
-			lastout = pos == burst - 1;
-			if(lastout)
-				pos_ = 0;
-			outaddr_ = outaddr + 8;
+			if(!mode16 || half) begin
+				pos_ = pos + 1;
+				lastout = pos == burst - 1;
+				if(lastout)
+					pos_ = 0;
+				outaddr_ = outaddr + 8;
+			end
 			dmavalid = 1;
 		end
 		if(lastout || !rdact) begin

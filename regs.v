@@ -39,7 +39,8 @@ module regs(
 	output reg [31:0] curreg,
 	
 	output reg [31:0] phyctl,
-	input wire [31:0] physts
+	input wire [31:0] physts,
+	output reg mode16
 );
 
 	reg armreq0;
@@ -71,6 +72,7 @@ module regs(
 						'h08: addrstart <= armwdata;
 						'h0c: addrend <= armwdata;
 						'h10: curreg <= armwdata;
+						'h14: mode16 <= armwdata[0];
 						'h40: attr[31:0] <= armwdata;
 						'h44: attr[63:32] <= armwdata;
 						'h48: attr[95:64] <= armwdata;

@@ -7,6 +7,7 @@ enum {
 	START,
 	END,
 	CURS,
+	MODE16,
 	HVACT = 0x10,
 	HVTOT,
 	HVSYNC,
@@ -97,6 +98,7 @@ setfb(void)
 	if(fd < 0)
 		sysfatal("open: %r");
 	if(fprint(fd, "size 1280x1024x32 x8b8g8r8") < 0)
+//	if(fprint(fd, "size 1280x1024x16 r5g6b5") < 0)
 		sysfatal("fprint: %r");
 	if(fprint(fd, "addr %#ux", v) < 0)
 		sysfatal("fprint: %r");
@@ -106,7 +108,7 @@ void
 main()
 {
 	ulong *r;
-	uchar *rr, s;
+	uchar *rr, s, s1;
 	ulong addr;
 	int twolane, fast, emph, swing;
 	
@@ -133,6 +135,7 @@ main()
 	r[MVID1] = 2;
 	r[NVID1] = 5;
 	r[SCLK1] = 26214;
+//	r[MODE16] = 1;
 	
 	addr = getpa();
 	r[START] = addr;

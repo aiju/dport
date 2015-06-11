@@ -94,7 +94,7 @@ module top(
 	wire dmastart, clkdmastart;
 	wire fiforeset;
 	
-	wire speed, twolane;
+	wire speed, twolane, mode16;
 	wire [1:0] preemph, swing;
 	
 	wire clk = fclk[0];
@@ -116,7 +116,7 @@ module top(
 		regauxaddr, regauxwdata, regauxreq, regauxwr, regauxack, regauxerr, regauxrdata,
 		debugaddr, debugreq, debugack, debugrdata, debugwdata, debugwr,
 		curaddr, curwdata, curreq, curwstrb,
-		attr, addrstart, addrend, curreg, phyctl, physts
+		attr, addrstart, addrend, curreg, phyctl, physts, mode16
 	);
 	train train0(clk,
 		regauxaddr, regauxwdata, regauxreq, regauxwr, regauxack, regauxerr, regauxrdata,
@@ -132,7 +132,8 @@ module top(
 	dma dma0(clk, reset, clkdmastart,
 		dmado, dmavalid, fifoalfull, addrstart, addrend,
 		hp0_araddr, hp0_arid, hp0_arlen, hp0_arsize, hp0_arburst, hp0_arready, hp0_arvalid,
-		hp0_rdata, hp0_rid, hp0_rlast, hp0_rready, hp0_rresp, hp0_rvalid
+		hp0_rdata, hp0_rid, hp0_rlast, hp0_rready, hp0_rresp, hp0_rvalid,
+		mode16
 	);
 	cursor cursor0(clk, clkdmastart, dmado, dmavalid, fifodi, fifowren,
 		curreg, curaddr, curwdata, curreq, curwstrb,
