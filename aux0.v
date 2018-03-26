@@ -2,7 +2,7 @@
 
 module aux(
 	input wire clk,
-	
+
 	input wire [19:0] auxaddr,
 	input wire [7:0] auxwdata,
 	input wire auxreq,
@@ -10,11 +10,11 @@ module aux(
 	output reg auxack,
 	output reg auxerr,
 	output reg [7:0] auxrdata,
-	
+
 	input wire auxi,
 	output reg auxo,
 	output reg auxd,
-	
+
 	output wire debug,
 	output wire debug2
 );
@@ -35,8 +35,8 @@ module aux(
 	parameter SYSMHZ = 100;
 	parameter MAXKHZ = 1500;
 	parameter MINKHZ = 750;
-	localparam [NCO-1:0] MAXFREQ = 4.0 * MAXKHZ * (1<<NCO) / (SYSMHZ * 1000);
-	localparam [NCO-1:0] MINFREQ = 4.0 * MINKHZ * (1<<NCO) / (SYSMHZ * 1000);
+	localparam [NCO-1:0] MAXFREQ = 4 * MAXKHZ * (1<<NCO) / (SYSMHZ * 1000);
+	localparam [NCO-1:0] MINFREQ = 4 * MINKHZ * (1<<NCO) / (SYSMHZ * 1000);
 	reg [NCO-1:0] rxdiv, rxdiv_, fctr, fctr_, freq, alpha, beta;
 	reg carry, rxclk, rxclkup, rxclkdn, rxa, rxb;
 
@@ -108,7 +108,7 @@ module aux(
 	reg rxstart, clrctr, incctr, clridx, incidx, loadsr, auxreq0;
 	reg [3:0] ctr, idx;
 	reg [7:0] sr;
-	
+
 	localparam IDLE = 0;
 	localparam TXPREC = 1;
 	localparam TXSYNC = 2;
@@ -199,7 +199,7 @@ module aux(
 				txstate_ = IDLE;
 		endcase
 	end
-	
+
 	reg [3:0] inv, rxctr, rxbctr;
 	initial rxstate = IDLE;
 	reg [7:0] rxsr;
@@ -209,7 +209,7 @@ module aux(
 	localparam RXDATA = 3;
 	localparam RXPARK = 4;
 	reg [15:0] rxtimer;
-	
+
 	always @(posedge clk) begin
 		auxack <= 0;
 		rxbyte <= 0;
